@@ -63,6 +63,7 @@ impl Library {
         let migrations = [
             include_str!("migrations/001_library.sql"),
             include_str!("migrations/002_metadata.sql"),
+            include_str!("migrations/003_movie_metadata.sql"),
         ];
 
         let done: i64 = self
@@ -209,7 +210,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 2);
+        assert_eq!(version, 3);
     }
 
     #[test]

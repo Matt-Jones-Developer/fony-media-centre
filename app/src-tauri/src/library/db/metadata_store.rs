@@ -1,9 +1,9 @@
 //! Which series need TMDB data, and saving what TMDB sent.
 
 use super::Library;
-use crate::metadata::art::{ArtImage, SeasonArtRow, SeriesArtRow};
-use crate::metadata::tmdb::ShowDetails;
-use crate::metadata::{MatchedBy, SearchJob, ShowJob};
+use crate::metadata::art::{ArtImage, MovieArtRow, PosterOwner, SeasonArtRow, SeriesArtRow};
+use crate::metadata::tmdb::{MovieDetails, ShowDetails};
+use crate::metadata::{MatchedBy, MovieJob, SearchJob, ShowJob};
 use rusqlite::params;
 use serde::Serialize;
 
@@ -167,7 +167,9 @@ impl Library {
             .prepare(
                 "SELECT poster_path, 'poster' FROM tmdb_shows WHERE poster_path IS NOT NULL
                  UNION SELECT poster_path, 'poster' FROM tmdb_seasons WHERE poster_path IS NOT NULL
-                 UNION SELECT logo_path, 'logo' FROM tmdb_shows WHERE logo_path IS NOT NULL",
+                 UNION SELECT logo_path, 'logo' FROM tmdb_shows WHERE logo_path IS NOT NULL
+                 UNION SELECT poster_path, 'poster' FROM tmdb_movies WHERE poster_path IS NOT NULL
+                 UNION SELECT logo_path, 'logo' FROM tmdb_movies WHERE logo_path IS NOT NULL",
             )
             .map_err(|err| err.to_string())?;
         let rows = query
@@ -210,6 +212,7 @@ impl Library {
                     logo_path: row.get(4)?,
                     spine_colour: row.get(5)?,
                     seasons: Vec::new(),
+                    movies: Vec::new(),
                 })
             })
             .map_err(|err| err.to_string())?;
@@ -245,52 +248,192 @@ impl Library {
                 show.seasons.push(season.map_err(|err| err.to_string())?);
             }
         }
+
+        let mut movies = self
+            .conn
+            .prepare(
+                "SELECT movies.id, movies.title, movies.year, tmdb_movies.overview,
+                        tmdb_movies.poster_path, tmdb_movies.logo_path, tmdb_movies.spine_colour
+                 FROM movies
+                 LEFT JOIN tmdb_movie_matches ON tmdb_movie_matches.movie_id = movies.id
+                 LEFT JOIN tmdb_movies ON tmdb_movies.tmdb_id = tmdb_movie_matches.tmdb_id
+                 WHERE movies.series_id = ?1
+                 ORDER BY movies.year, movies.title",
+            )
+            .map_err(|err| err.to_string())?;
+        for show in &mut all_rows {
+            let movie_rows = movies
+                .query_map(params![show.series_id], |row| {
+                    Ok(MovieArtRow {
+                        movie_id: row.get(0)?,
+                        title: row.get(1)?,
+                        year: row.get(2)?,
+                        overview: row.get(3)?,
+                        poster_path: row.get(4)?,
+                        logo_path: row.get(5)?,
+                        spine_colour: row.get(6)?,
+                    })
+                })
+                .map_err(|err| err.to_string())?;
+            for movie in movie_rows {
+                show.movies.push(movie.map_err(|err| err.to_string())?);
+            }
+        }
         Ok(all_rows)
     }
 
-    /// Shows with a poster but no spine colour yet, as (TMDB id, poster image).
-    pub fn posters_needing_colour(&self) -> Result<Vec<(i64, ArtImage)>, String> {
+    /// Shows and movies with a poster but no spine colour yet.
+    pub fn posters_needing_colour(&self) -> Result<Vec<(PosterOwner, ArtImage)>, String> {
         let mut query = self
             .conn
             .prepare(
-                "SELECT tmdb_id, poster_path FROM tmdb_shows
+                "SELECT tmdb_id, poster_path, 'show' FROM tmdb_shows
+                 WHERE poster_path IS NOT NULL AND spine_colour IS NULL
+                 UNION ALL
+                 SELECT tmdb_id, poster_path, 'movie' FROM tmdb_movies
                  WHERE poster_path IS NOT NULL AND spine_colour IS NULL",
             )
             .map_err(|err| err.to_string())?;
         let rows = query
             .query_map([], |row| {
-                Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                ))
             })
             .map_err(|err| err.to_string())?;
         let mut posters = Vec::new();
         for row in rows {
-            let (tmdb_id, poster_path) = row.map_err(|err| err.to_string())?;
-            posters.push((tmdb_id, ArtImage::poster(poster_path)));
+            let (tmdb_id, poster_path, kind) = row.map_err(|err| err.to_string())?;
+            let owner = match kind.as_str() {
+                "movie" => PosterOwner::Movie(tmdb_id),
+                _ => PosterOwner::Show(tmdb_id),
+            };
+            posters.push((owner, ArtImage::poster(poster_path)));
         }
         Ok(posters)
     }
 
-    pub fn save_spine_colour(&mut self, tmdb_id: i64, colour: &str) -> Result<(), String> {
-        self.conn
-            .execute(
+    pub fn save_spine_colour(&mut self, owner: PosterOwner, colour: &str) -> Result<(), String> {
+        let (sql, tmdb_id) = match owner {
+            PosterOwner::Show(tmdb_id) => (
                 "UPDATE tmdb_shows SET spine_colour = ?2,
                    updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
                  WHERE tmdb_id = ?1",
-                params![tmdb_id, colour],
-            )
+                tmdb_id,
+            ),
+            PosterOwner::Movie(tmdb_id) => (
+                "UPDATE tmdb_movies SET spine_colour = ?2,
+                   updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+                 WHERE tmdb_id = ?1",
+                tmdb_id,
+            ),
+        };
+        self.conn
+            .execute(sql, params![tmdb_id, colour])
             .map(|_| ())
             .map_err(|err| format!("Can't save a spine colour: {err}"))
     }
 
+    /// Series movies that haven't been searched for yet.
+    /// With `retry_unmatched`, also those a search couldn't place last time.
+    pub fn movies_to_search(&self, retry_unmatched: bool) -> Result<Vec<MovieJob>, String> {
+        let mut query = self
+            .conn
+            .prepare(
+                "SELECT movies.id, movies.title, movies.year
+                 FROM movies LEFT JOIN tmdb_movie_matches ON tmdb_movie_matches.movie_id = movies.id
+                 WHERE tmdb_movie_matches.movie_id IS NULL
+                    OR (?1 AND tmdb_movie_matches.how = 'search' AND tmdb_movie_matches.tmdb_id IS NULL)
+                 ORDER BY movies.title",
+            )
+            .map_err(|err| err.to_string())?;
+        let rows = query
+            .query_map(params![retry_unmatched], |row| {
+                Ok(MovieJob {
+                    movie_id: row.get(0)?,
+                    title: row.get(1)?,
+                    year: row.get(2)?,
+                })
+            })
+            .map_err(|err| err.to_string())?;
+        let mut jobs = Vec::new();
+        for row in rows {
+            jobs.push(row.map_err(|err| err.to_string())?);
+        }
+        Ok(jobs)
+    }
+
+    /// Saves the movie and records the match together.
+    pub fn save_movie(&mut self, movie_id: i64, movie: &MovieDetails) -> Result<(), String> {
+        let tx = self.conn.transaction().map_err(|err| err.to_string())?;
+        tx.execute(
+            "INSERT INTO tmdb_movies (tmdb_id, title, release_year, overview, poster_path, logo_path, fetched_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+             ON CONFLICT (tmdb_id) DO UPDATE SET
+               -- A new poster needs its spine colour picked again.
+               spine_colour = CASE WHEN tmdb_movies.poster_path IS excluded.poster_path
+                                   THEN tmdb_movies.spine_colour END,
+               title = excluded.title, release_year = excluded.release_year,
+               overview = excluded.overview, poster_path = excluded.poster_path,
+               logo_path = excluded.logo_path, fetched_at = excluded.fetched_at,
+               updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')",
+            params![
+                movie.tmdb_id,
+                movie.title,
+                movie.release_year,
+                movie.overview,
+                movie.poster_path,
+                movie.logo_path
+            ],
+        )
+        .and_then(|_| {
+            tx.execute(
+                "INSERT INTO tmdb_movie_matches (movie_id, tmdb_id, how, checked_at)
+                 VALUES (?1, ?2, 'search', strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+                 ON CONFLICT (movie_id) DO UPDATE SET
+                   tmdb_id = excluded.tmdb_id, how = excluded.how, checked_at = excluded.checked_at,
+                   updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')",
+                params![movie_id, movie.tmdb_id],
+            )
+        })
+        .map_err(|err| format!("Can't save a TMDB movie: {err}"))?;
+        tx.commit()
+            .map_err(|err| format!("Can't save a TMDB movie: {err}"))
+    }
+
+    /// Records that a movie search found no clear match. A match set by hand is never overwritten.
+    pub fn save_movie_unmatched(&mut self, movie_id: i64) -> Result<(), String> {
+        self.conn
+            .execute(
+                "INSERT INTO tmdb_movie_matches (movie_id, tmdb_id, how, checked_at)
+                 VALUES (?1, NULL, 'search', strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+                 ON CONFLICT (movie_id) DO UPDATE SET
+                   tmdb_id = NULL, how = 'search', checked_at = excluded.checked_at,
+                   updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+                 WHERE tmdb_movie_matches.how <> 'manual'",
+                params![movie_id],
+            )
+            .map(|_| ())
+            .map_err(|err| format!("Can't save a TMDB movie match: {err}"))
+    }
+
     pub fn metadata_counts(&self) -> Result<MetadataCounts, String> {
-        let waiting = self.shows_to_fetch(None)?.len() + self.shows_to_search(false)?.len();
+        let waiting = self.shows_to_fetch(None)?.len()
+            + self.shows_to_search(false)?.len()
+            + self.movies_to_search(false)?.len();
         let mut query = self
             .conn
             .prepare(
                 "SELECT series.name FROM tmdb_matches
                  JOIN series ON series.id = tmdb_matches.series_id
                  WHERE tmdb_matches.tmdb_id IS NULL
-                 ORDER BY series.name",
+                 UNION ALL
+                 SELECT movies.title FROM tmdb_movie_matches
+                 JOIN movies ON movies.id = tmdb_movie_matches.movie_id
+                 WHERE tmdb_movie_matches.tmdb_id IS NULL
+                 ORDER BY 1",
             )
             .map_err(|err| err.to_string())?;
         let rows = query
@@ -302,9 +445,12 @@ impl Library {
         }
         let matched = self
             .conn
-            .query_row("SELECT count(tmdb_id) FROM tmdb_matches", [], |row| {
-                row.get(0)
-            })
+            .query_row(
+                "SELECT (SELECT count(tmdb_id) FROM tmdb_matches)
+                      + (SELECT count(tmdb_id) FROM tmdb_movie_matches)",
+                [],
+                |row| row.get(0),
+            )
             .map_err(|err| format!("Can't count TMDB matches: {err}"))?;
         Ok(MetadataCounts {
             matched,
@@ -462,7 +608,9 @@ mod tests {
             .unwrap();
         assert_eq!(library.posters_needing_colour().unwrap().len(), 1);
 
-        library.save_spine_colour(720, "#c81e1e").unwrap();
+        library
+            .save_spine_colour(PosterOwner::Show(720), "#c81e1e")
+            .unwrap();
         assert!(library.posters_needing_colour().unwrap().is_empty());
         library
             .save_show(1, MatchedBy::Marker, &ducktales(720, 1))
@@ -475,7 +623,10 @@ mod tests {
             .save_show(1, MatchedBy::Marker, &new_poster)
             .unwrap();
         let needing = library.posters_needing_colour().unwrap();
-        assert_eq!(needing, vec![(720, ArtImage::poster("/new.jpg".into()))]);
+        assert_eq!(
+            needing,
+            vec![(PosterOwner::Show(720), ArtImage::poster("/new.jpg".into()))]
+        );
     }
 
     #[test]
@@ -503,6 +654,74 @@ mod tests {
         library.save_show(2, MatchedBy::Search, &found).unwrap();
         assert!(library.shows_to_search(true).unwrap().is_empty());
         assert_eq!(library.shows_to_fetch(None).unwrap().len(), 1);
+    }
+
+    fn add_transformers_movie(library: &Library) {
+        library
+            .conn
+            .execute_batch(
+                "INSERT INTO files (drive_id, rel_path, size, modified_at)
+                   VALUES (1, 'MEDIA/Cartoons/DuckTales (1987)/Movies/Movie (1986).mp4', 1, '2026-11-22T00:00:00Z');
+                 INSERT INTO movies (series_id, file_id, title, year)
+                   VALUES (1, 1, 'The Transformers - The Movie', 1986);",
+            )
+            .unwrap();
+    }
+
+    fn transformers() -> MovieDetails {
+        MovieDetails {
+            tmdb_id: 1857,
+            title: "The Transformers: The Movie".into(),
+            release_year: Some(1986),
+            overview: None,
+            poster_path: Some("/movie.jpg".into()),
+            logo_path: Some("/movie-logo.png".into()),
+        }
+    }
+
+    #[test]
+    fn a_saved_movie_brings_its_art_and_colour_job() {
+        let mut library = library_with_two_series();
+        library
+            .save_show(1, MatchedBy::Marker, &ducktales(720, 1))
+            .unwrap();
+        add_transformers_movie(&library);
+        let jobs = library.movies_to_search(false).unwrap();
+        assert_eq!(
+            (jobs[0].title.as_str(), jobs[0].year),
+            ("The Transformers - The Movie", Some(1986))
+        );
+
+        library
+            .save_movie(jobs[0].movie_id, &transformers())
+            .unwrap();
+        assert!(library.movies_to_search(true).unwrap().is_empty());
+        let wanted = library.art_wanted().unwrap();
+        assert!(wanted.contains(&ArtImage::poster("/movie.jpg".into())));
+        assert!(wanted.contains(&ArtImage::logo("/movie-logo.png".into())));
+        let needing = library.posters_needing_colour().unwrap();
+        assert!(needing.contains(&(
+            PosterOwner::Movie(1857),
+            ArtImage::poster("/movie.jpg".into())
+        )));
+
+        let rows = library.series_art_rows().unwrap();
+        assert_eq!(rows[0].movies.len(), 1);
+        assert_eq!(rows[0].movies[0].poster_path.as_deref(), Some("/movie.jpg"));
+        assert_eq!(library.metadata_counts().unwrap().matched, 2);
+    }
+
+    #[test]
+    fn an_unmatched_movie_is_listed_and_only_retried_when_asked() {
+        let mut library = library_with_two_series();
+        add_transformers_movie(&library);
+        let movie_id = library.movies_to_search(false).unwrap()[0].movie_id;
+        library.save_movie_unmatched(movie_id).unwrap();
+
+        assert!(library.movies_to_search(false).unwrap().is_empty());
+        assert_eq!(library.movies_to_search(true).unwrap().len(), 1);
+        let names = library.metadata_counts().unwrap().unmatched_names;
+        assert!(names.contains(&"The Transformers - The Movie".to_string()));
     }
 
     #[test]

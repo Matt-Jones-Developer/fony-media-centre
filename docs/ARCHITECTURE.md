@@ -182,7 +182,7 @@ Each is one `plan-ticket` slice and ends with something Glitchy can check.
 
 ## Metadata and art (Phase 1, step 2)
 
-Status: **approved 2026-11-22.** Slices 1 to 4 built.
+Status: **approved 2026-11-22.** All 5 slices built.
 
 ### 1. Requirements
 
@@ -266,7 +266,7 @@ Nothing but `tmdb.rs` imports the HTTP client. The UI shows images straight from
 | `tmdb_shows` | `tmdb_id` PK, `name`, `first_air_year`, `overview`, `poster_path`, `logo_path`, `spine_colour`, `fetched_at` | What TMDB said. Paths are TMDB's (e.g. `/abc.jpg`); the local file is `art/<size>/abc.jpg` |
 | `tmdb_seasons` | (`tmdb_id`, `season_number`) PK, `name`, `overview`, `poster_path` | Joined to our `seasons` by number |
 
-Movies follow the same pattern (`tmdb_movie_matches`, `tmdb_movies`) in their own slice.
+Movies follow the same pattern in migration 003: `tmdb_movies` (title, release year, overview, poster, logo, spine colour) and `tmdb_movie_matches` (`movie_id` PK, `tmdb_id` null = unmatched, `how` search or manual).
 
 ### 7. Caching
 

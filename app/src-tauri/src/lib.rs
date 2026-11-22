@@ -104,19 +104,23 @@ fn start_fetching(app: &AppHandle, only: Option<i64>, retry_unmatched: bool) {
 }
 
 /// Four requests at a time. Shows that fail are left unmatched and tried again next launch.
-/// Shows with a marker id first, then a search for the rest (only when fetching everything).
+/// Shows with a marker id first, then a search for the other shows and the series movies
+/// (only when fetching everything).
 fn fetch_all(app: &AppHandle, only: Option<i64>, retry_unmatched: bool) -> Result<(), String> {
     let workers = 4;
     let library = app.state::<LibraryState>();
-    let (show_jobs, search_jobs) = {
+    let (show_jobs, search_jobs, movie_jobs) = {
         let library = lock_library(&library)?;
-        let search_jobs = match only {
-            Some(_) => Vec::new(),
-            None => library.shows_to_search(retry_unmatched)?,
+        let (search_jobs, movie_jobs) = match only {
+            Some(_) => (Vec::new(), Vec::new()),
+            None => (
+                library.shows_to_search(retry_unmatched)?,
+                library.movies_to_search(retry_unmatched)?,
+            ),
         };
-        (library.shows_to_fetch(only)?, search_jobs)
+        (library.shows_to_fetch(only)?, search_jobs, movie_jobs)
     };
-    if show_jobs.is_empty() && search_jobs.is_empty() {
+    if show_jobs.is_empty() && search_jobs.is_empty() && movie_jobs.is_empty() {
         return Ok(());
     }
     let tmdb = Tmdb::from_env().map_err(|err| err.to_string())?;
@@ -131,7 +135,7 @@ fn fetch_all(app: &AppHandle, only: Option<i64>, retry_unmatched: bool) -> Resul
         }
     }
 
-    // Only a handful of shows have no marker, so one at a time is plenty.
+    // Only a handful of shows and movies need searching, so one at a time is plenty.
     for job in &search_jobs {
         match metadata::search_show(&tmdb, job) {
             Ok(Some(show)) => {
@@ -148,10 +152,27 @@ fn fetch_all(app: &AppHandle, only: Option<i64>, retry_unmatched: bool) -> Resul
         }
     }
 
+    for job in &movie_jobs {
+        match metadata::search_movie(&tmdb, job) {
+            Ok(Some(movie)) => lock_library(&library)?.save_movie(job.movie_id, &movie)?,
+            Ok(None) => lock_library(&library)?.save_movie_unmatched(job.movie_id)?,
+            Err(err) => {
+                let should_stop = err.stops_everything();
+                failures.push(err.to_string());
+                if should_stop {
+                    break;
+                }
+            }
+        }
+    }
+
     let Some(first_failure) = failures.first() else {
         return Ok(());
     };
-    Err(format!("{} shows failed: {first_failure}", failures.len()))
+    Err(format!(
+        "{} lookups failed: {first_failure}",
+        failures.len()
+    ))
 }
 
 /// Four downloads at a time. Images that fail are tried again next time.
@@ -173,12 +194,12 @@ fn download_art(app: &AppHandle) -> Result<(), String> {
     ))
 }
 
-/// Picks a spine colour for every downloaded poster that doesn't have one yet.
+/// Picks a spine colour for every downloaded show or movie poster that doesn't have one yet.
 fn colour_spines(app: &AppHandle) -> Result<(), String> {
     let library = app.state::<LibraryState>();
     let art_folder = &app.state::<ArtFolder>().0;
     let posters = lock_library(&library)?.posters_needing_colour()?;
-    for (tmdb_id, poster) in posters {
+    for (owner, poster) in posters {
         let Some(path) = art::local_path(art_folder, &poster) else {
             continue;
         };
@@ -186,7 +207,7 @@ fn colour_spines(app: &AppHandle) -> Result<(), String> {
             continue;
         };
         let colour = art::spine_colour(&bytes)?;
-        lock_library(&library)?.save_spine_colour(tmdb_id, &colour)?;
+        lock_library(&library)?.save_spine_colour(owner, &colour)?;
     }
     Ok(())
 }

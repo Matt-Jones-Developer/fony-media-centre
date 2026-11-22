@@ -8,20 +8,20 @@ _Last updated: 2026-11-22._
 ## Where we are
 
 - **Phase 1, step 1 (library core): done.** Committed and pushed.
-- **Step 2 (TMDB metadata and art): slices 1 to 4 of 5 built.** Slices 1 to 3 committed (`a400831`, `4c01e5d`, `be16405`, not pushed). Slice 4 not committed.
-- Slice 1: all 23 shows with marker ids fetched (poster, logo, overview), 135 TMDB seasons. No wrong matches.
-- Slice 2: all 180 images in `art/` (posters w780, logos w500), 30 MB. Dev **Art** panel via the asset protocol.
-- Slice 3: spine colour picked from each poster (`art::spine_colour`, all 23 done). Tape components in `app/src/tape/` (`Spine`, `Sleeve`, `WallPosters`), shared type in `app/src/types/art.ts`. Previewed in the Art panel: click a show, then a spine.
-- Slice 4: exact search (`metadata/matching.rs`) matched Dexter's Laboratory, Dungeons & Dragons, He-Man and Pinky and the Brain. Unmatched on purpose: Little Miss (two TMDB entries, same name and year), Looney Tunes (no year), The Pink Panther (1964, nothing found). 27 matched, 3 unmatched.
-- Code: `app/src-tauri/src/metadata/` (TMDB client, background fetch), `library/db/metadata_store.rs`, migration `002_metadata.sql`. Dev screen has a TMDB line and **Refresh TMDB**.
+- **Phase 1, step 2 (TMDB metadata and art): done, all 5 slices.** Slices 1 to 4 committed (`a400831`, `4c01e5d`, `be16405`, `2e950c8`, none pushed). **Slice 5 (series movies) not committed.**
+- Design: `docs/ARCHITECTURE.md` "Metadata and art". Decisions: `docs/DECISIONS.md`.
+- Results on the drive today:
+  - 27 of 30 shows matched (23 by marker id, 4 by exact search). Unmatched on purpose: Little Miss (two TMDB entries, same name and year), Looney Tunes (no year), The Pink Panther (1964, nothing found).
+  - All 4 series movies matched (M.A.S.K. The Movie has no TMDB logo, so its spine is handwritten).
+  - Art cached in `~/Library/Application Support/FonyMediaCentre/art/` (posters w780, logos w500). Every matched show and movie has a spine colour.
+- Code: `app/src-tauri/src/metadata/` (`tmdb.rs` the only TMDB client, `matching.rs`, `art.rs`, `mod.rs`), `library/db/metadata_store.rs`, migrations 002 and 003. React tape parts: `app/src/tape/` (`Spine`, `Sleeve`, `WallPosters`, `seasonLabel`), type `app/src/types/art.ts`. Dev screen: TMDB line with unmatched names, **Refresh TMDB**, and the **Art** panel (click a show, then a spine).
 - Step 1 slice detail: `docs/archive/2026-11-22-library-core-slices-1-5.md`.
 - Repo: https://github.com/Matt-Jones-Developer/fony-media-centre, branch `main`.
 
 ## Next session, in order
 
-1. **Glitchy checks slice 4:** TMDB line says 27 matched, 3 unmatched, with the names listed; the 4 new shows appear in the Art panel. Then commit.
-2. **Slice 5: series movies** (the last slice of step 2). Run `plan-ticket`.
-3. Then stop and summarise step 2 before step 3 (home screen).
+1. **Glitchy checks slice 5:** in the Art panel, Hey Arnold!, M.A.S.K. and Transformers show movie spines after their seasons; clicking one puts the movie poster on the right wall. Then commit, and push if wanted (5 commits are waiting).
+2. **Step 3: home screen.** Bundle the fonts first (see Open items), then run `plan-ticket` against `docs/mockups/Main.dc.html` and `Boot.dc.html`. Load `ux-laws` before proposing the layout. This needs `library_overview` (ARCHITECTURE section 5), which can absorb `series_art`.
 
 ## Open items
 

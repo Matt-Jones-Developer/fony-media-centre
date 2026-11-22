@@ -5,7 +5,7 @@ pub mod matching;
 pub mod tmdb;
 
 use std::thread;
-use tmdb::{ShowDetails, Tmdb, TmdbError};
+use tmdb::{MovieDetails, ShowDetails, Tmdb, TmdbError};
 
 /// How a series folder was matched to its TMDB show.
 #[derive(Clone, Copy)]
@@ -28,6 +28,26 @@ pub struct SearchJob {
     pub series_id: i64,
     pub name: String,
     pub year: Option<i32>,
+}
+
+/// A series movie to look up by title and year.
+pub struct MovieJob {
+    pub movie_id: i64,
+    pub title: String,
+    pub year: Option<i32>,
+}
+
+/// Searches TMDB for a series movie, then fetches it if exactly one title matches.
+/// `Ok(None)` means no clear match.
+pub fn search_movie(tmdb: &Tmdb, job: &MovieJob) -> Result<Option<MovieDetails>, TmdbError> {
+    let Some(year) = job.year else {
+        return Ok(None);
+    };
+    let results = tmdb.search_movie(&job.title, year)?;
+    let Some(tmdb_id) = matching::pick_exact_title(&job.title, &results) else {
+        return Ok(None);
+    };
+    tmdb.movie(tmdb_id).map(Some)
 }
 
 /// A series folder whose TMDB show needs fetching.

@@ -13,4 +13,15 @@ export type SeriesArt = {
   logoFile: string | null;
   spineColour: string | null;
   seasons: SeasonArt[];
+  movies: MovieArt[];
+};
+
+export type MovieArt = {
+  movieId: number;
+  title: string;
+  year: number | null;
+  overview: string | null;
+  posterFile: string | null;
+  logoFile: string | null;
+  spineColour: string | null;
 };

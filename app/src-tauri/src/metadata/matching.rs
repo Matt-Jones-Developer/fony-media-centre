@@ -1,7 +1,7 @@
 //! Decides whether a TMDB search result is the same show as a folder. Plain functions, no network.
 //! The rule is tapehead's: never guess. Anything short of one clear match stays unmatched.
 
-use super::tmdb::SearchResult;
+use super::tmdb::{MovieSearchResult, SearchResult};
 
 /// The TMDB id when exactly one result has the same name (or original name) and first air year.
 /// No year on our side means no match: a name alone is too easy to get wrong.
@@ -16,6 +16,27 @@ pub fn pick_exact(name: &str, year: Option<i32>, results: &[SearchResult]) -> Op
                 .as_deref()
                 .is_some_and(|original| comparable(original) == wanted);
         if same_name && result.first_air_year == Some(year) {
+            matches.push(result.tmdb_id);
+        }
+    }
+    let [only] = matches.as_slice() else {
+        return None;
+    };
+    Some(*only)
+}
+
+/// The TMDB id when exactly one movie has the same title (or original title).
+/// The year was already checked by the search, which matches a release in any country.
+pub fn pick_exact_title(title: &str, results: &[MovieSearchResult]) -> Option<i64> {
+    let wanted = comparable(title);
+    let mut matches = Vec::new();
+    for result in results {
+        let same_title = comparable(&result.title) == wanted
+            || result
+                .original_title
+                .as_deref()
+                .is_some_and(|original| comparable(original) == wanted);
+        if same_title {
             matches.push(result.tmdb_id);
         }
     }
@@ -81,6 +102,43 @@ mod tests {
                 &[found]
             ),
             Some(9)
+        );
+    }
+
+    fn movie(tmdb_id: i64, title: &str) -> MovieSearchResult {
+        MovieSearchResult {
+            tmdb_id,
+            title: title.into(),
+            original_title: None,
+        }
+    }
+
+    #[test]
+    fn matches_a_movie_title_whatever_its_punctuation() {
+        let results = [
+            movie(1857, "The Transformers: The Movie"),
+            movie(8, "Transformers"),
+        ];
+        assert_eq!(
+            pick_exact_title("The Transformers - The Movie", &results),
+            Some(1857)
+        );
+        assert_eq!(
+            pick_exact_title(
+                "M.A.S.K. The Movie",
+                &[movie(731_709, "M.A.S.K. The Movie")]
+            ),
+            Some(731_709)
+        );
+    }
+
+    #[test]
+    fn refuses_a_movie_title_that_matches_twice_or_not_at_all() {
+        let twice = [movie(1, "The Movie"), movie(2, "The Movie")];
+        assert_eq!(pick_exact_title("The Movie", &twice), None);
+        assert_eq!(
+            pick_exact_title("Hey Arnold! The Movie", &[movie(3, "Hey Arnold")]),
+            None
         );
     }
 

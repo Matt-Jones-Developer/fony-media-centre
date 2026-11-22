@@ -3,16 +3,17 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 
 interface SpineProps {
   name: string;
-  seasonNumber: number;
+  /** Under the label: a season ("1", "SP", "1930s") or "MOVIE". */
+  caption: string;
   logoFile: string | null;
   spineColour: string | null;
 }
 
 /** A tape seen spine-out. Sized by its parent. Without a logo and colour it gets a handwritten label. */
-export default function Spine({ name, seasonNumber, logoFile, spineColour }: SpineProps) {
+export default function Spine({ name, caption, logoFile, spineColour }: SpineProps) {
   return (
     <div className="spine-ribs flex h-full w-full flex-col rounded-sm p-1 shadow-lg shadow-black/60">
-      <SpineLabel name={name} label={seasonLabel(seasonNumber)} logoFile={logoFile} spineColour={spineColour} />
+      <SpineLabel name={name} label={caption} logoFile={logoFile} spineColour={spineColour} />
     </div>
   );
 }
@@ -72,13 +73,6 @@ function HandwrittenLabel({ name, label }: HandwrittenLabelProps) {
       <p className="pt-2 font-hand text-sm">{label}</p>
     </div>
   );
-}
-
-/** 0 is Specials; Looney Tunes seasons are decades, numbered by their first year. */
-function seasonLabel(seasonNumber: number) {
-  if (seasonNumber === 0) return "SP";
-  if (seasonNumber >= 1900) return `${seasonNumber}s`;
-  return String(seasonNumber);
 }
 
 /** True when dark text reads better than light text on `hex` (#rrggbb). */

@@ -3,6 +3,7 @@ import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import Sleeve from "../tape/Sleeve";
 import Spine from "../tape/Spine";
+import { seasonLabel } from "../tape/seasonLabel";
 import WallPosters from "../tape/WallPosters";
 import type { SeriesArt } from "../types/art";
 
@@ -11,6 +12,7 @@ export default function ArtPanel() {
   const [allArt, setAllArt] = useState<SeriesArt[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [selectedSeason, setSelectedSeason] = useState<number | null>(null);
+  const [selectedMovieId, setSelectedMovieId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function loadArt() {
@@ -31,11 +33,22 @@ export default function ArtPanel() {
 
   const selected = allArt.find((show) => show.seriesId === selectedId);
   const season = selected?.seasons.find((each) => each.number === selectedSeason) ?? selected?.seasons[0];
+  const movie = selected?.movies.find((each) => each.movieId === selectedMovieId);
+  const seasonName = season?.name ?? `season ${season?.number}`;
+  const tapeLabel = movie ? movie.title : `${selected?.name} ${seasonName}`;
+  const tapePosterFile = movie ? movie.posterFile : (season?.posterFile ?? null);
+  const hasTape = movie || season;
+
+  function pickSeason(seasonNumber: number) {
+    setSelectedSeason(seasonNumber);
+    setSelectedMovieId(null);
+  }
   const downloadedPosters = allArt.filter((show) => show.posterFile).length;
 
   function toggleShow(seriesId: number) {
     setSelectedId(seriesId === selectedId ? null : seriesId);
     setSelectedSeason(null);
+    setSelectedMovieId(null);
   }
 
   return (
@@ -56,30 +69,43 @@ export default function ArtPanel() {
                   <button
                     type="button"
                     aria-label={`${selected.name}, ${each.name ?? `season ${each.number}`}`}
-                    aria-pressed={each.number === season?.number}
+                    aria-pressed={!movie && each.number === season?.number}
                     className="h-full w-full transition-transform aria-pressed:-translate-y-3 motion-reduce:transition-none"
-                    onClick={() => setSelectedSeason(each.number)}
+                    onClick={() => pickSeason(each.number)}
                   >
                     <Spine
                       name={selected.name}
-                      seasonNumber={each.number}
+                      caption={seasonLabel(each.number)}
                       logoFile={selected.logoFile}
                       spineColour={selected.spineColour}
                     />
                   </button>
                 </li>
               ))}
+              {selected.movies.map((each) => (
+                <li key={each.movieId} className="h-72 w-12">
+                  <button
+                    type="button"
+                    aria-label={each.title}
+                    aria-pressed={each.movieId === movie?.movieId}
+                    className="h-full w-full transition-transform aria-pressed:-translate-y-3 motion-reduce:transition-none"
+                    onClick={() => setSelectedMovieId(each.movieId)}
+                  >
+                    <Spine name={each.title} caption="MOVIE" logoFile={each.logoFile} spineColour={each.spineColour} />
+                  </button>
+                </li>
+              ))}
             </ul>
             <div className="w-40">
-              <Sleeve name={selected.name} posterFile={selected.posterFile} />
+              <Sleeve name={movie?.title ?? selected.name} posterFile={movie ? movie.posterFile : selected.posterFile} />
             </div>
-            {season && (
+            {hasTape && (
               <div className="w-80">
                 <WallPosters
                   name={selected.name}
-                  seasonNumber={season.number}
                   showPosterFile={selected.posterFile}
-                  seasonPosterFile={season.posterFile}
+                  tapePosterFile={tapePosterFile}
+                  tapeLabel={tapeLabel}
                 />
               </div>
             )}

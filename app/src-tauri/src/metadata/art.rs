@@ -32,6 +32,15 @@ impl ArtImage {
     }
 }
 
+/// Whose spine a poster colours.
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum PosterOwner {
+    /// A TMDB show id.
+    Show(i64),
+    /// A TMDB movie id.
+    Movie(i64),
+}
+
 /// Where `image` lives on disk, e.g. `art/w780/abc.jpg`.
 /// `None` for a name that isn't a plain TMDB file name, so nothing can be written outside the folder.
 pub fn local_path(art_folder: &Path, image: &ArtImage) -> Option<PathBuf> {
@@ -190,6 +199,20 @@ pub struct SeriesArt {
     /// `#rrggbb`, or `None` until the poster has downloaded.
     pub spine_colour: Option<String>,
     pub seasons: Vec<SeasonArt>,
+    pub movies: Vec<MovieArt>,
+}
+
+/// A series movie. The TMDB parts are empty until it's matched and its art has downloaded.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MovieArt {
+    pub movie_id: i64,
+    pub title: String,
+    pub year: Option<i32>,
+    pub overview: Option<String>,
+    pub poster_file: Option<String>,
+    pub logo_file: Option<String>,
+    pub spine_colour: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -210,6 +233,17 @@ pub struct SeriesArtRow {
     pub logo_path: Option<String>,
     pub spine_colour: Option<String>,
     pub seasons: Vec<SeasonArtRow>,
+    pub movies: Vec<MovieArtRow>,
+}
+
+pub struct MovieArtRow {
+    pub movie_id: i64,
+    pub title: String,
+    pub year: Option<i32>,
+    pub overview: Option<String>,
+    pub poster_path: Option<String>,
+    pub logo_path: Option<String>,
+    pub spine_colour: Option<String>,
 }
 
 pub struct SeasonArtRow {
@@ -246,9 +280,30 @@ pub fn series_art(art_folder: &Path, rows: Vec<SeriesArtRow>) -> Vec<SeriesArt> 
                 .and_then(|path| existing_file(art_folder, ArtImage::logo(path))),
             spine_colour: row.spine_colour,
             seasons,
+            movies: movie_art(art_folder, row.movies),
         });
     }
     all_art
+}
+
+fn movie_art(art_folder: &Path, rows: Vec<MovieArtRow>) -> Vec<MovieArt> {
+    let mut movies = Vec::new();
+    for row in rows {
+        movies.push(MovieArt {
+            movie_id: row.movie_id,
+            title: row.title,
+            year: row.year,
+            overview: row.overview,
+            poster_file: row
+                .poster_path
+                .and_then(|path| existing_file(art_folder, ArtImage::poster(path))),
+            logo_file: row
+                .logo_path
+                .and_then(|path| existing_file(art_folder, ArtImage::logo(path))),
+            spine_colour: row.spine_colour,
+        });
+    }
+    movies
 }
 
 #[cfg(test)]
