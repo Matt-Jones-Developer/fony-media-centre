@@ -182,7 +182,7 @@ Each is one `plan-ticket` slice and ends with something Glitchy can check.
 
 ## Metadata and art (Phase 1, step 2)
 
-Status: **approved 2026-11-22.** Slice 1 built.
+Status: **approved 2026-11-22.** Slices 1 and 2 built.
 
 ### 1. Requirements
 
@@ -246,7 +246,7 @@ Nothing but `tmdb.rs` imports the HTTP client. The UI shows images straight from
 4. Download the poster, logo and season posters. Work out the spine colour from the poster and save it.
 5. Send a `metadata-progress` event so the dev screen updates.
 
-**Showing a tape:** the UI asks for a series' art. Rust returns the cached file paths, colour and overviews. Missing pieces come back empty, and the component draws its fallback.
+**Showing a tape:** the UI asks for the art. Rust returns the cached file paths, colour and overviews. Missing pieces come back empty, and the component draws its fallback.
 
 ### 5. Commands (UI to Rust)
 
@@ -254,7 +254,7 @@ Nothing but `tmdb.rs` imports the HTTP client. The UI shows images straight from
 | --- | --- | --- |
 | `metadata_status` | Counts: matched, unmatched, waiting, failed, last error | A small object |
 | `metadata_refresh(series_id?)` | Fetches one show again, or everything still missing | Nothing; progress comes as events |
-| `series_art(series_id)` | Poster, logo and colour, plus each season's poster and overview | One object |
+| `series_art` | Every matched show: poster, logo, overview, and each of our seasons with TMDB's poster and overview. File paths only for images already on disk | A list, small enough to send whole (30 shows) |
 
 `series_art` later folds into `library_overview` when the shelf is built (step 4).
 
@@ -270,6 +270,7 @@ Movies follow the same pattern (`tmdb_movie_matches`, `tmdb_movies`) in their ow
 
 ### 7. Caching
 
+- **Sizes:** show and season posters at 780 px wide (both hang on the wall at the same size), logos at 500 px.
 - **The art folder is the image cache.** TMDB file names are unique per image, so a file that exists is never downloaded again. The database records which files we expect, so a deleted file is simply fetched again.
 - **TMDB data is fetched once** and only refreshed by `metadata_refresh` or a changed marker id. No timed expiry: old cartoon art doesn't change.
 

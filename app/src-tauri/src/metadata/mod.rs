@@ -1,5 +1,6 @@
 //! TMDB metadata and art for the shelf. See docs/ARCHITECTURE.md "Metadata and art".
 
+pub mod art;
 pub mod tmdb;
 
 use std::thread;

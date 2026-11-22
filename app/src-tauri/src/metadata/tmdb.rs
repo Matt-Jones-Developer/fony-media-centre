@@ -61,7 +61,7 @@ impl fmt::Display for TmdbError {
         match self {
             TmdbError::KeyMissing => write!(f, "No TMDB key. Add TMDB_API_KEY to .env.local"),
             TmdbError::KeyRejected => write!(f, "TMDB rejected the key"),
-            TmdbError::NotFound => write!(f, "TMDB has no show with that id"),
+            TmdbError::NotFound => write!(f, "TMDB couldn't find it"),
             TmdbError::Offline => write!(f, "Can't reach TMDB (offline?)"),
             TmdbError::TooManyRequests => write!(f, "TMDB is busy; try again later"),
             TmdbError::Failed(status) => write!(f, "TMDB answered with error {status}"),
@@ -97,6 +97,21 @@ impl Tmdb {
             ],
         )?;
         Ok(show_details(raw))
+    }
+
+    /// One image from TMDB's image server, e.g. size `w780` and path `/abc.jpg`. Needs no key.
+    pub fn image(&self, size: &str, tmdb_path: &str) -> Result<Vec<u8>, TmdbError> {
+        let url = format!("https://image.tmdb.org/t/p/{size}{tmdb_path}");
+        let mut response = self.agent.get(url).call().map_err(|_| TmdbError::Offline)?;
+        match response.status().as_u16() {
+            200 => response
+                .body_mut()
+                .read_to_vec()
+                .map_err(|_| TmdbError::BadAnswer),
+            404 => Err(TmdbError::NotFound),
+            429 => Err(TmdbError::TooManyRequests),
+            status => Err(TmdbError::Failed(status)),
+        }
     }
 
     /// Waits 1, 2, then 4 seconds when TMDB says it's busy, then gives up.
@@ -316,5 +331,17 @@ mod tests {
             Tmdb::from_env().unwrap().show(999_999_999),
             Err(TmdbError::NotFound)
         );
+    }
+
+    /// Calls TMDB for real: `cargo test -- --ignored`. Needs the network and the key.
+    #[test]
+    #[ignore]
+    fn downloads_a_real_poster() {
+        let bytes = Tmdb::from_env()
+            .unwrap()
+            .image("w780", "/l39HDf6WYzV8VLY5EnCRC81DWOy.jpg")
+            .unwrap();
+        // Every JPEG starts with these two bytes.
+        assert_eq!(bytes.get(..2), Some(&[0xFF, 0xD8][..]));
     }
 }

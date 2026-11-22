@@ -2,6 +2,7 @@
 
 use super::Library;
 use crate::metadata::ShowJob;
+use crate::metadata::art::{ArtImage, SeasonArtRow, SeriesArtRow};
 use crate::metadata::tmdb::ShowDetails;
 use rusqlite::params;
 use serde::Serialize;
@@ -100,6 +101,92 @@ impl Library {
         .map_err(|err| format!("Can't save a TMDB match: {err}"))?;
         tx.commit()
             .map_err(|err| format!("Can't save a TMDB show: {err}"))
+    }
+
+    /// Every image the tapes use: show and season posters, and logos.
+    pub fn art_wanted(&self) -> Result<Vec<ArtImage>, String> {
+        let mut query = self
+            .conn
+            .prepare(
+                "SELECT poster_path, 'poster' FROM tmdb_shows WHERE poster_path IS NOT NULL
+                 UNION SELECT poster_path, 'poster' FROM tmdb_seasons WHERE poster_path IS NOT NULL
+                 UNION SELECT logo_path, 'logo' FROM tmdb_shows WHERE logo_path IS NOT NULL",
+            )
+            .map_err(|err| err.to_string())?;
+        let rows = query
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
+            .map_err(|err| err.to_string())?;
+        let mut images = Vec::new();
+        for row in rows {
+            let (tmdb_path, kind) = row.map_err(|err| err.to_string())?;
+            if kind == "logo" {
+                images.push(ArtImage::logo(tmdb_path));
+                continue;
+            }
+            images.push(ArtImage::poster(tmdb_path));
+        }
+        Ok(images)
+    }
+
+    /// Each matched show with our seasons, joined to TMDB's season of the same number.
+    pub fn series_art_rows(&self) -> Result<Vec<SeriesArtRow>, String> {
+        let mut shows = self
+            .conn
+            .prepare(
+                "SELECT series.id, series.name, tmdb_shows.overview, tmdb_shows.poster_path, tmdb_shows.logo_path
+                 FROM series
+                 JOIN tmdb_matches ON tmdb_matches.series_id = series.id
+                 JOIN tmdb_shows ON tmdb_shows.tmdb_id = tmdb_matches.tmdb_id
+                 ORDER BY series.name",
+            )
+            .map_err(|err| err.to_string())?;
+        let show_rows = shows
+            .query_map([], |row| {
+                Ok(SeriesArtRow {
+                    series_id: row.get(0)?,
+                    name: row.get(1)?,
+                    overview: row.get(2)?,
+                    poster_path: row.get(3)?,
+                    logo_path: row.get(4)?,
+                    seasons: Vec::new(),
+                })
+            })
+            .map_err(|err| err.to_string())?;
+        let mut all_rows = Vec::new();
+        for row in show_rows {
+            all_rows.push(row.map_err(|err| err.to_string())?);
+        }
+
+        let mut seasons = self
+            .conn
+            .prepare(
+                "SELECT seasons.number, tmdb_seasons.name, tmdb_seasons.overview, tmdb_seasons.poster_path
+                 FROM seasons
+                 JOIN tmdb_matches ON tmdb_matches.series_id = seasons.series_id
+                 LEFT JOIN tmdb_seasons ON tmdb_seasons.tmdb_id = tmdb_matches.tmdb_id
+                   AND tmdb_seasons.season_number = seasons.number
+                 WHERE seasons.series_id = ?1
+                 ORDER BY seasons.number",
+            )
+            .map_err(|err| err.to_string())?;
+        for show in &mut all_rows {
+            let season_rows = seasons
+                .query_map(params![show.series_id], |row| {
+                    Ok(SeasonArtRow {
+                        number: row.get(0)?,
+                        name: row.get(1)?,
+                        overview: row.get(2)?,
+                        poster_path: row.get(3)?,
+                    })
+                })
+                .map_err(|err| err.to_string())?;
+            for season in season_rows {
+                show.seasons.push(season.map_err(|err| err.to_string())?);
+            }
+        }
+        Ok(all_rows)
     }
 
     pub fn metadata_counts(&self) -> Result<MetadataCounts, String> {
@@ -210,6 +297,44 @@ mod tests {
         let jobs = library.shows_to_fetch(None).unwrap();
         assert_eq!(jobs.len(), 1);
         assert_eq!(jobs[0].tmdb_id, 721);
+    }
+
+    #[test]
+    fn wants_every_poster_and_logo_once() {
+        let mut library = library_with_two_series();
+        let mut show = ducktales(720, 2);
+        show.seasons[0].poster_path = Some("/season1.jpg".into());
+        library.save_show(1, &show).unwrap();
+
+        let wanted = library.art_wanted().unwrap();
+        assert_eq!(wanted.len(), 3);
+        assert!(wanted.contains(&ArtImage::poster("/poster.jpg".into())));
+        assert!(wanted.contains(&ArtImage::poster("/season1.jpg".into())));
+        assert!(wanted.contains(&ArtImage::logo("/logo.png".into())));
+    }
+
+    #[test]
+    fn joins_our_seasons_to_tmdb_seasons_by_number() {
+        let mut library = library_with_two_series();
+        let mut show = ducktales(720, 2);
+        show.seasons[0].poster_path = Some("/season1.jpg".into());
+        library.save_show(1, &show).unwrap();
+        library
+            .conn
+            .execute_batch("INSERT INTO seasons (series_id, number) VALUES (1, 1), (1, 3)")
+            .unwrap();
+
+        let rows = library.series_art_rows().unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].name, "DuckTales");
+        assert_eq!(rows[0].logo_path.as_deref(), Some("/logo.png"));
+        let seasons: Vec<(u32, Option<&str>)> = rows[0]
+            .seasons
+            .iter()
+            .map(|season| (season.number, season.poster_path.as_deref()))
+            .collect();
+        // Season 3 is on the drive but not on TMDB: still listed, with no poster.
+        assert_eq!(seasons, vec![(1, Some("/season1.jpg")), (3, None)]);
     }
 
     #[test]

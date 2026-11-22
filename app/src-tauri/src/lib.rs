@@ -9,6 +9,7 @@ use library::db::{DriveSummary, Library, LibraryCounts, MetadataCounts};
 use library::parse::TidyRules;
 use library::probe;
 use library::scan;
+use metadata::art::{self, SeriesArt};
 use metadata::tmdb::Tmdb;
 use mpv::Mpv;
 use serde::Serialize;
@@ -72,7 +73,11 @@ struct Fetching {
     last_error: Mutex<Option<String>>,
 }
 
+/// `~/Library/Application Support/FonyMediaCentre/art`. Never on a media drive.
+struct ArtFolder(PathBuf);
+
 /// Fetches TMDB data in the background: every show still missing, or just `only`.
+/// Then downloads any art that isn't on disk yet.
 /// If fetching is already running, this does nothing.
 fn start_fetching(app: &AppHandle, only: Option<i64>) {
     if app
@@ -84,7 +89,7 @@ fn start_fetching(app: &AppHandle, only: Option<i64>) {
     }
     let handle = app.clone();
     std::thread::spawn(move || {
-        let outcome = fetch_all(&handle, only);
+        let outcome = fetch_all(&handle, only).and_then(|_| download_art(&handle));
         let fetching = handle.state::<Fetching>();
         if let Ok(mut last_error) = fetching.last_error.lock() {
             *last_error = outcome.err();
@@ -115,6 +120,25 @@ fn fetch_all(app: &AppHandle, only: Option<i64>) -> Result<(), String> {
         return Ok(());
     };
     Err(format!("{} shows failed: {first_failure}", failures.len()))
+}
+
+/// Four downloads at a time. Images that fail are tried again next time.
+fn download_art(app: &AppHandle) -> Result<(), String> {
+    let workers = 4;
+    let wanted = lock_library(&app.state::<LibraryState>())?.art_wanted()?;
+    if wanted.is_empty() {
+        return Ok(());
+    }
+    let tmdb = Tmdb::from_env().map_err(|err| err.to_string())?;
+    let art_folder = &app.state::<ArtFolder>().0;
+    let report = art::download_missing(&tmdb, art_folder, wanted, workers);
+    let Some(first_failure) = report.failures.first() else {
+        return Ok(());
+    };
+    Err(format!(
+        "{} images failed: {first_failure}",
+        report.failures.len()
+    ))
 }
 
 /// Watches /Volumes and the library folders. `None` if watching couldn't start.
@@ -309,6 +333,16 @@ fn metadata_status(
     })
 }
 
+/// Every matched show's art, with file paths only for images already on disk.
+#[tauri::command]
+fn series_art(
+    library: State<LibraryState>,
+    art_folder: State<ArtFolder>,
+) -> Result<Vec<SeriesArt>, String> {
+    let rows = lock_library(&library)?.series_art_rows()?;
+    Ok(art::series_art(&art_folder.0, rows))
+}
+
 /// Fetches one show again, or with no id, every show still missing.
 #[tauri::command]
 fn metadata_refresh(app: AppHandle, series_id: Option<i64>) {
@@ -322,7 +356,9 @@ pub fn run() {
         .manage(Player(Mutex::new(None)))
         .setup(|app| {
             // Not app_data_dir(): that would name the folder after the bundle id, not the app.
-            let db_path = app.path().data_dir()?.join("FonyMediaCentre/library.db");
+            let app_folder = app.path().data_dir()?.join("FonyMediaCentre");
+            let db_path = app_folder.join("library.db");
+            app.manage(ArtFolder(app_folder.join("art")));
             app.manage(LibraryState(Mutex::new(Library::open(&db_path)?)));
             app.manage(ScanLock(Mutex::new(())));
             app.manage(Probing(AtomicBool::new(false)));
@@ -363,7 +399,8 @@ pub fn run() {
             library_counts,
             library_review_queue,
             metadata_status,
-            metadata_refresh
+            metadata_refresh,
+            series_art
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

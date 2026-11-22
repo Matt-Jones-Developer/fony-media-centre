@@ -8,17 +8,17 @@ _Last updated: 2026-11-22._
 ## Where we are
 
 - **Phase 1, step 1 (library core): done.** Committed and pushed.
-- **Step 2 (TMDB metadata and art): slice 1 of 5 built, not committed.** Design: `docs/ARCHITECTURE.md` "Metadata and art". Decisions: `docs/DECISIONS.md`.
+- **Step 2 (TMDB metadata and art): slices 1 and 2 of 5 built.** Slice 1 committed (`a400831`, not pushed); slice 2 not committed. Design: `docs/ARCHITECTURE.md` "Metadata and art". Decisions: `docs/DECISIONS.md`.
 - Slice 1 result: all 23 shows with marker ids fetched (poster, logo and overview for every one), 135 TMDB seasons, all with posters. No wrong matches.
+- Slice 2 result: all 180 wanted images downloaded to `art/` (157 posters at w780, 23 logos at w500), 30 MB, no partial files. Dev screen has an **Art** panel served through the asset protocol.
 - Code: `app/src-tauri/src/metadata/` (TMDB client, background fetch), `library/db/metadata_store.rs`, migration `002_metadata.sql`. Dev screen has a TMDB line and **Refresh TMDB**.
 - Step 1 slice detail: `docs/archive/2026-11-22-library-core-slices-1-5.md`.
 - Repo: https://github.com/Matt-Jones-Developer/fony-media-centre, branch `main`.
 
 ## Next session, in order
 
-1. **Glitchy checks slice 1** on the dev screen (TMDB line says 23 matched), then commit.
-2. **Slice 2: art cache.** Run `plan-ticket`. Download posters, logos and season posters to `art/`, and show them through Tauri's asset protocol (needs the `protocol-asset` feature and a scope limited to the art folder).
-3. Then slices 3 to 5: spine colour and tape components (adds the `image` crate), exact search for the 7 shows without ids, series movies.
+1. **Glitchy checks slice 2:** the Art panel on the dev screen shows posters and logos, and clicking a show shows its season posters. If images show "broken", the asset protocol scope (`$DATA/FonyMediaCentre/art/**` in `tauri.conf.json`) is the first suspect. Then commit.
+2. Then slices 3 to 5: spine colour and tape components (adds the `image` crate), exact search for the 7 shows without ids, series movies.
 
 ## Open items
 
