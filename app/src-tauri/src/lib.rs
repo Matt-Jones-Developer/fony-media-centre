@@ -5,7 +5,7 @@ mod mpv;
 mod watch;
 
 use drives::VolumeInfo;
-use library::db::{DriveSummary, Library, LibraryCounts, MetadataCounts};
+use library::db::{DriveSummary, LabelStyle, Library, LibraryCounts, MetadataCounts};
 use library::parse::TidyRules;
 use library::probe;
 use library::scan;
@@ -404,6 +404,25 @@ fn metadata_status(
     })
 }
 
+/// How handwritten tape labels look: "graf" or "regular".
+#[tauri::command]
+fn label_style(library: State<LibraryState>) -> Result<&'static str, String> {
+    Ok(lock_library(&library)?.label_style()?.as_str())
+}
+
+/// Saves the label style and tells every open view with `settings-changed`.
+#[tauri::command]
+fn set_label_style(
+    app: AppHandle,
+    library: State<LibraryState>,
+    style: String,
+) -> Result<(), String> {
+    let style = LabelStyle::parse(&style).ok_or("Unknown label style")?;
+    lock_library(&library)?.save_label_style(style)?;
+    app.emit("settings-changed", ())
+        .map_err(|err| format!("Can't tell the UI the settings changed: {err}"))
+}
+
 /// Every matched show's art, with file paths only for images already on disk.
 #[tauri::command]
 fn series_art(
@@ -471,7 +490,9 @@ pub fn run() {
             library_review_queue,
             metadata_status,
             metadata_refresh,
-            series_art
+            series_art,
+            label_style,
+            set_label_style
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

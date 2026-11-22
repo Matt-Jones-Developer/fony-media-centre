@@ -6,6 +6,8 @@ import Spine from "../tape/Spine";
 import { seasonLabel } from "../tape/seasonLabel";
 import WallPosters from "../tape/WallPosters";
 import type { SeriesArt } from "../types/art";
+import { useLabelStyle } from "../settings/useLabelStyle";
+import type { LabelStyle } from "../settings/useLabelStyle";
 
 
 export default function ArtPanel() {
@@ -14,6 +16,19 @@ export default function ArtPanel() {
   const [selectedSeason, setSelectedSeason] = useState<number | null>(null);
   const [selectedMovieId, setSelectedMovieId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { labelStyle, saveLabelStyle } = useLabelStyle();
+  const labelStyles: { value: LabelStyle; name: string }[] = [
+    { value: "regular", name: "Regular" },
+    { value: "graf", name: "Graf" },
+  ];
+
+  async function pickLabelStyle(style: LabelStyle) {
+    try {
+      await saveLabelStyle(style);
+    } catch (err) {
+      setError(String(err));
+    }
+  }
 
   async function loadArt() {
     try {
@@ -53,7 +68,22 @@ export default function ArtPanel() {
 
   return (
     <section aria-label="Art" className="mb-6 max-w-5xl rounded bg-black/40 p-4 font-mono text-sm">
-      <h2 className="mb-1 tracking-widest">ART</h2>
+      <div className="mb-1 flex items-center justify-between gap-4">
+        <h2 className="tracking-widest">ART</h2>
+        <div role="group" aria-label="Handwritten label style" className="flex gap-2">
+          {labelStyles.map((style) => (
+            <button
+              key={style.value}
+              type="button"
+              aria-pressed={style.value === labelStyle}
+              className="min-w-24 rounded bg-dymo-black px-3 py-2 font-bold aria-pressed:bg-dymo-red"
+              onClick={() => pickLabelStyle(style.value)}
+            >
+              {style.name}
+            </button>
+          ))}
+        </div>
+      </div>
       <p className="mb-3 text-paper-muted">
         Posters on disk for {downloadedPosters} of {allArt.length} matched shows. Pick one to see its tapes above the grid.
       </p>
@@ -91,7 +121,7 @@ export default function ArtPanel() {
                     className="h-full w-full transition-transform aria-pressed:-translate-y-3 motion-reduce:transition-none"
                     onClick={() => setSelectedMovieId(each.movieId)}
                   >
-                    <Spine name={each.title} caption="MOVIE" logoFile={each.logoFile} spineColour={each.spineColour} />
+                    <Spine name={each.title} logoFile={each.logoFile} spineColour={each.spineColour} />
                   </button>
                 </li>
               ))}

@@ -2,6 +2,12 @@
 
 Choices that are expensive to undo. Newest first. Each entry: what, why, what was rejected.
 
+## 2026-11-22: Label style setting (approved)
+
+- **App settings live in a `settings` key/value table (migration 004), written only through Rust**, which accepts known keys and values only. The step 6 import settings and the Pi build use the same place. Rejected: webview localStorage (Rust and the Pi can't read it, and it can be wiped).
+- **Handwritten labels have two styles: Graf (Sedgwick Ave Display, the default) and Regular (Kalam).** Switched with a `data-label-style` attribute on the page root and a Tailwind `graf:` variant, so no component needs a prop.
+- **Fonts are bundled as Latin-only `.woff2` files in `app/src/assets/fonts/`**, with their OFL licences. No font packages. Rejected: Fontsource (one dependency per font).
+
 ## 2026-11-22: Metadata and art (approved)
 
 Design: `docs/ARCHITECTURE.md` (Metadata and art).

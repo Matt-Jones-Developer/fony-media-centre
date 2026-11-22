@@ -19,7 +19,7 @@ function SleeveFront({ name, posterFile }: SleeveProps) {
     return <img src={convertFileSrc(posterFile)} alt={`${name} case`} className="aspect-2/3 w-full object-cover" />;
   }
   return (
-    <div className="grid aspect-2/3 w-full place-items-center bg-label-cream p-3 text-center font-hand text-lg text-dymo-black">
+    <div className="grid aspect-2/3 w-full place-items-center bg-label-cream p-3 text-center font-hand text-3xl font-bold text-dymo-black graf:font-graf graf:text-5xl graf:leading-none graf:font-normal">
       {name}
     </div>
   );

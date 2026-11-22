@@ -4,6 +4,7 @@
 mod metadata_store;
 mod probe_store;
 mod scan_store;
+mod settings_store;
 
 use crate::drives::VolumeInfo;
 use rusqlite::{Connection, params};
@@ -18,6 +19,7 @@ pub struct Library {
 pub use metadata_store::MetadataCounts;
 pub use probe_store::ProbeJob;
 pub use scan_store::LibraryCounts;
+pub use settings_store::LabelStyle;
 
 /// One drive as the UI sees it: is it plugged in, and which of its folders does the library read.
 #[derive(Serialize)]
@@ -64,6 +66,7 @@ impl Library {
             include_str!("migrations/001_library.sql"),
             include_str!("migrations/002_metadata.sql"),
             include_str!("migrations/003_movie_metadata.sql"),
+            include_str!("migrations/004_settings.sql"),
         ];
 
         let done: i64 = self
@@ -210,7 +213,7 @@ mod tests {
             .conn
             .pragma_query_value(None, "user_version", |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 3);
+        assert_eq!(version, 4);
     }
 
     #[test]

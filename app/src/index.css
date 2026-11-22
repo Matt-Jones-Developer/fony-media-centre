@@ -20,10 +20,33 @@
   --color-paper-muted: #a9a398;
 }
 
-@theme {
-  /* Kalam isn't bundled yet; Bradley Hand ships with macOS, so labels still look handwritten. */
-  --font-hand: "Kalam", "Bradley Hand", cursive;
+/* Bundled so labels work offline. Latin letters only; licences sit beside the files. */
+@font-face {
+  font-family: "Kalam";
+  src: url("./assets/fonts/kalam-latin.woff2") format("woff2");
+  font-display: swap;
 }
+
+@font-face {
+  font-family: "Kalam";
+  src: url("./assets/fonts/kalam-bold-latin.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Sedgwick Ave Display";
+  src: url("./assets/fonts/sedgwick-ave-display-latin.woff2") format("woff2");
+  font-display: swap;
+}
+
+@theme {
+  --font-hand: "Kalam", "Bradley Hand", cursive;
+  --font-graf: "Sedgwick Ave Display", "Kalam", cursive;
+}
+
+/* Handwritten labels switch to the graffiti style when the label style setting is Graf. */
+@custom-variant graf (&:where([data-label-style="graf"] *));
 
 /* Fine vertical ribbing on black VHS plastic. */
 @utility spine-ribs {

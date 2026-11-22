@@ -3,8 +3,8 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 
 interface SpineProps {
   name: string;
-  /** Under the label: a season ("1", "SP", "1930s") or "MOVIE". */
-  caption: string;
+  /** Under the label: a season ("1", "SP", "1930s"). Movies have none. */
+  caption?: string;
   logoFile: string | null;
   spineColour: string | null;
 }
@@ -20,7 +20,7 @@ export default function Spine({ name, caption, logoFile, spineColour }: SpinePro
 
 interface SpineLabelProps {
   name: string;
-  label: string;
+  label?: string;
   logoFile: string | null;
   spineColour: string | null;
 }
@@ -34,7 +34,7 @@ function SpineLabel({ name, label, logoFile, spineColour }: SpineLabelProps) {
 
 interface PrintedLabelProps {
   name: string;
-  label: string;
+  label?: string;
   logoFile: string;
   spineColour: string;
 }
@@ -54,23 +54,23 @@ function PrintedLabel({ name, label, logoFile, spineColour }: PrintedLabelProps)
           className="absolute top-1/2 left-1/2 h-[100cqw] w-[100cqh] max-w-none -translate-1/2 -rotate-90 object-contain p-1"
         />
       </div>
-      <p className={`pt-2 text-center font-mono text-sm font-bold ${textColour}`}>{label}</p>
+      {label && <p className={`pt-2 text-center font-mono text-sm font-bold ${textColour}`}>{label}</p>}
     </div>
   );
 }
 
 interface HandwrittenLabelProps {
   name: string;
-  label: string;
+  label?: string;
 }
 
 function HandwrittenLabel({ name, label }: HandwrittenLabelProps) {
   return (
     <div className="flex flex-1 flex-col items-center rounded-xs bg-label-cream py-2 text-dymo-black">
-      <p className="flex-1 rotate-180 overflow-hidden text-center font-hand text-sm leading-tight [writing-mode:vertical-rl]">
+      <p className="flex-1 rotate-180 overflow-hidden text-center font-hand text-xl leading-tight font-bold [writing-mode:vertical-rl] graf:font-graf graf:text-3xl graf:leading-none graf:font-normal">
         {name}
       </p>
-      <p className="pt-2 font-hand text-sm">{label}</p>
+      {label && <p className="pt-2 font-hand text-lg font-bold graf:font-graf graf:text-2xl graf:font-normal">{label}</p>}
     </div>
   );
 }

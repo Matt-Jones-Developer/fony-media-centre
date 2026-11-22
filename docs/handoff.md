@@ -8,7 +8,8 @@ _Last updated: 2026-11-22._
 ## Where we are
 
 - **Phase 1, step 1 (library core): done.** Committed and pushed.
-- **Phase 1, step 2 (TMDB metadata and art): done, all 5 slices.** Slices 1 to 4 committed (`a400831`, `4c01e5d`, `be16405`, `2e950c8`, none pushed). **Slice 5 (series movies) not committed.**
+- **Phase 1, step 2 (TMDB metadata and art): done, all 5 slices**, committed (`a400831`, `4c01e5d`, `be16405`, `2e950c8`, `0ea6263`). All pushed.
+- **Label style setting (Graf / Regular): built and committed.** Graf = Sedgwick Ave Display (default), Regular = Kalam. Both bundled in `app/src/assets/fonts/` (Kalam regular and bold). Movie spines have no caption; sizes were raised for both styles at Glitchy's request. Saved in the `settings` table (migration 004) via `label_style` / `set_label_style`; `app/src/settings/useLabelStyle.ts` sets `data-label-style` on the page root; toggle in the Art panel header.
 - Design: `docs/ARCHITECTURE.md` "Metadata and art". Decisions: `docs/DECISIONS.md`.
 - Results on the drive today:
   - 27 of 30 shows matched (23 by marker id, 4 by exact search). Unmatched on purpose: Little Miss (two TMDB entries, same name and year), Looney Tunes (no year), The Pink Panther (1964, nothing found).
@@ -20,8 +21,8 @@ _Last updated: 2026-11-22._
 
 ## Next session, in order
 
-1. **Glitchy checks slice 5:** in the Art panel, Hey Arnold!, M.A.S.K. and Transformers show movie spines after their seasons; clicking one puts the movie poster on the right wall. Then commit, and push if wanted (5 commits are waiting).
-2. **Step 3: home screen.** Bundle the fonts first (see Open items), then run `plan-ticket` against `docs/mockups/Main.dc.html` and `Boot.dc.html`. Load `ux-laws` before proposing the layout. This needs `library_overview` (ARCHITECTURE section 5), which can absorb `series_art`.
+1. **Bundle the remaining fonts** the same way (VT323, Alfa Slab One, Roboto Mono bold, Inter) into `app/src/assets/fonts/`.
+2. **Step 3: home screen.** Run `plan-ticket` against `docs/mockups/Main.dc.html` and `Boot.dc.html`; load `ux-laws` first. Needs `library_overview` (ARCHITECTURE section 5), which can absorb `series_art`.
 
 ## Open items
 
@@ -29,7 +30,7 @@ _Last updated: 2026-11-22._
 - **Watch progress key:** by file or by show/season/episode. Decide in the player step (DECISIONS, "Open").
 - **Bundled mpv:** which libmpv build to ship. Needed for packaging (step 7).
 - **Waiting on Glitchy:** quit with ⌘Q while something is playing and confirm the mpv window closes.
-- **Fonts aren't bundled:** no font is loaded yet (VT323, Kalam, Alfa Slab One, Roboto Mono). Handwritten labels fall back to macOS's Bradley Hand via `--font-hand`. Bundle them locally (offline app) before the home screen (step 3).
+- **Fonts:** Kalam and Sedgwick Ave Display are bundled. VT323, Alfa Slab One, Roboto Mono and Inter are not yet (needed for the home screen).
 - **Season numbering:** Dexter's Lab and Pinky and the Brain use local season numbers, so a season poster may belong to a different TMDB season. Fix in the editor.
 - **TMDB key for the packaged app:** dev reads `.env.local`. Decide where it lives in step 7.
 
