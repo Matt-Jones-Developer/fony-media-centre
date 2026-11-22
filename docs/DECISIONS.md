@@ -2,6 +2,16 @@
 
 Choices that are expensive to undo. Newest first. Each entry: what, why, what was rejected.
 
+## 2026-11-22: Metadata and art (approved)
+
+Design: `docs/ARCHITECTURE.md` (Metadata and art).
+
+- **`ureq` for HTTP.** Small and blocking, runs on a background thread like ffprobe. About 40 calls don't need async. Rejected: `reqwest` (bigger, async, more crates).
+- **`image` crate (JPEG and PNG only) for the spine colour.** Worked out once in Rust when the poster downloads, then saved. Rejected: reading pixels in the webview (local images may be blocked from canvas reads).
+- **Exact search for shows without a marker id.** Name and year must match exactly, or the show stays unmatched for the editor. Rejected: no search at all.
+- **Matches live in their own table (`tmdb_matches`), not on `series`.** The scanner overwrites `series` on every scan, and the editor will write manual matches.
+- **Tape parts are drawn by React components from data, not saved as images.** Cheap to change, and editor overrides drop straight in.
+
 ## 2026-11-22: Looser name rules for untidy folders (approved)
 
 - **Looney Tunes shorts are grouped into one season per decade**, in release order. The season number is the decade's first year (1930, 1940, 1950, 1960), so the spine can show "1930s". Rejected: one season per year (37 thin tapes, several with one short); by Golden Collection volume (the files don't say which volume).

@@ -1,14 +1,17 @@
 mod drives;
 mod library;
+mod metadata;
 mod mpv;
 mod watch;
 
 use drives::VolumeInfo;
-use library::db::{DriveSummary, Library, LibraryCounts};
+use library::db::{DriveSummary, Library, LibraryCounts, MetadataCounts};
 use library::parse::TidyRules;
 use library::probe;
 use library::scan;
+use metadata::tmdb::Tmdb;
 use mpv::Mpv;
+use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -63,6 +66,57 @@ fn probe_all(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// True while TMDB data is being fetched, and the last thing that went wrong (for the dev screen).
+struct Fetching {
+    is_running: AtomicBool,
+    last_error: Mutex<Option<String>>,
+}
+
+/// Fetches TMDB data in the background: every show still missing, or just `only`.
+/// If fetching is already running, this does nothing.
+fn start_fetching(app: &AppHandle, only: Option<i64>) {
+    if app
+        .state::<Fetching>()
+        .is_running
+        .swap(true, Ordering::SeqCst)
+    {
+        return;
+    }
+    let handle = app.clone();
+    std::thread::spawn(move || {
+        let outcome = fetch_all(&handle, only);
+        let fetching = handle.state::<Fetching>();
+        if let Ok(mut last_error) = fetching.last_error.lock() {
+            *last_error = outcome.err();
+        }
+        fetching.is_running.store(false, Ordering::SeqCst);
+        let _ = handle.emit("library-changed", ());
+    });
+}
+
+/// Four requests at a time. Shows that fail are left unmatched and tried again next launch.
+fn fetch_all(app: &AppHandle, only: Option<i64>) -> Result<(), String> {
+    let workers = 4;
+    let library = app.state::<LibraryState>();
+    let jobs = lock_library(&library)?.shows_to_fetch(only)?;
+    if jobs.is_empty() {
+        return Ok(());
+    }
+    let tmdb = Tmdb::from_env().map_err(|err| err.to_string())?;
+
+    let mut failures = Vec::new();
+    for fetched in metadata::fetch_shows(&tmdb, &jobs, workers) {
+        match fetched.result {
+            Ok(show) => lock_library(&library)?.save_show(fetched.series_id, &show)?,
+            Err(err) => failures.push(err.to_string()),
+        }
+    }
+    let Some(first_failure) = failures.first() else {
+        return Ok(());
+    };
+    Err(format!("{} shows failed: {first_failure}", failures.len()))
+}
+
 /// Watches /Volumes and the library folders. `None` if watching couldn't start.
 struct WatcherState(Mutex<Option<LibraryWatcher>>);
 
@@ -107,6 +161,7 @@ fn rescan_all(app: &AppHandle) -> Result<LibraryCounts, String> {
     app.emit("library-changed", ())
         .map_err(|err| format!("Can't tell the UI the library changed: {err}"))?;
     start_probing(app);
+    start_fetching(app, None);
     Ok(counts)
 }
 
@@ -228,6 +283,38 @@ fn library_review_queue(library: State<LibraryState>) -> Result<Vec<String>, Str
     lock_library(&library)?.review_queue()
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct MetadataStatus {
+    #[serde(flatten)]
+    counts: MetadataCounts,
+    is_fetching: bool,
+    last_error: Option<String>,
+}
+
+#[tauri::command]
+fn metadata_status(
+    library: State<LibraryState>,
+    fetching: State<Fetching>,
+) -> Result<MetadataStatus, String> {
+    let last_error = fetching
+        .last_error
+        .lock()
+        .map_err(|_| "Metadata state is broken; restart the app")?
+        .clone();
+    Ok(MetadataStatus {
+        counts: lock_library(&library)?.metadata_counts()?,
+        is_fetching: fetching.is_running.load(Ordering::SeqCst),
+        last_error,
+    })
+}
+
+/// Fetches one show again, or with no id, every show still missing.
+#[tauri::command]
+fn metadata_refresh(app: AppHandle, series_id: Option<i64>) {
+    start_fetching(&app, series_id);
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -239,6 +326,10 @@ pub fn run() {
             app.manage(LibraryState(Mutex::new(Library::open(&db_path)?)));
             app.manage(ScanLock(Mutex::new(())));
             app.manage(Probing(AtomicBool::new(false)));
+            app.manage(Fetching {
+                is_running: AtomicBool::new(false),
+                last_error: Mutex::new(None),
+            });
 
             let watch_handle = app.handle().clone();
             let watcher = LibraryWatcher::start(move || {
@@ -270,7 +361,9 @@ pub fn run() {
             library_drives,
             library_rescan,
             library_counts,
-            library_review_queue
+            library_review_queue,
+            metadata_status,
+            metadata_refresh
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

@@ -7,15 +7,18 @@ _Last updated: 2026-11-22._
 
 ## Where we are
 
-- **Phase 1, step 1 (library core): all 6 slices built.** All committed (`d697369`), not pushed.
-- Design: `docs/ARCHITECTURE.md` (Library core). One-way decisions: `docs/DECISIONS.md`.
-- What each slice did and its results: `docs/archive/2026-11-22-library-core-slices-1-5.md` (slice 6 is in there too).
+- **Phase 1, step 1 (library core): done.** Committed and pushed.
+- **Step 2 (TMDB metadata and art): slice 1 of 5 built, not committed.** Design: `docs/ARCHITECTURE.md` "Metadata and art". Decisions: `docs/DECISIONS.md`.
+- Slice 1 result: all 23 shows with marker ids fetched (poster, logo and overview for every one), 135 TMDB seasons, all with posters. No wrong matches.
+- Code: `app/src-tauri/src/metadata/` (TMDB client, background fetch), `library/db/metadata_store.rs`, migration `002_metadata.sql`. Dev screen has a TMDB line and **Refresh TMDB**.
+- Step 1 slice detail: `docs/archive/2026-11-22-library-core-slices-1-5.md`.
 - Repo: https://github.com/Matt-Jones-Developer/fony-media-centre, branch `main`.
 
 ## Next session, in order
 
-1. **Glitchy checks slice 6:** `pnpm tauri dev`, press **Rescan**. Expect about 2,669 placed, 2 unplaced (Private Snafu), 3 untidy shows (He-Man, Looney Tunes, BEST of Pink Panther).
-2. **Step 2: TMDB metadata and art.** Run `system-design` (new external integration), then `plan-ticket`.
+1. **Glitchy checks slice 1** on the dev screen (TMDB line says 23 matched), then commit.
+2. **Slice 2: art cache.** Run `plan-ticket`. Download posters, logos and season posters to `art/`, and show them through Tauri's asset protocol (needs the `protocol-asset` feature and a scope limited to the art folder).
+3. Then slices 3 to 5: spine colour and tape components (adds the `image` crate), exact search for the 7 shows without ids, series movies.
 
 ## Open items
 
@@ -23,6 +26,7 @@ _Last updated: 2026-11-22._
 - **Watch progress key:** by file or by show/season/episode. Decide in the player step (DECISIONS, "Open").
 - **Bundled mpv:** which libmpv build to ship. Needed for packaging (step 7).
 - **Waiting on Glitchy:** quit with ⌘Q while something is playing and confirm the mpv window closes.
+- **TMDB key for the packaged app:** dev reads `.env.local`. Decide where it lives in step 7.
 
 ## How to run and check
 

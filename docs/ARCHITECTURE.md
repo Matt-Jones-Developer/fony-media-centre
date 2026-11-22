@@ -4,7 +4,7 @@ How the app fits together. One-way decisions and their reasons are in `docs/DECI
 
 ## Library core (Phase 1, step 1)
 
-Status: **approved 2026-11-22.** Slice 1 built.
+Status: **approved 2026-11-22.** All 6 slices built.
 
 ### 1. Requirements
 
@@ -179,3 +179,123 @@ Each is one `plan-ticket` slice and ends with something Glitchy can check.
 4. **ffprobe.** Background probing. Check: running times filled in, app stays responsive.
 5. **Watching.** File changes and plug/unplug. Check: rename a test copy or unplug the drive and watch the dev screen update.
 6. **Unmarked folders.** Parse He-Man and Looney Tunes as far as tapehead's loose rules allow; the rest to the review queue.
+
+## Metadata and art (Phase 1, step 2)
+
+Status: **approved 2026-11-22.** Slice 1 built.
+
+### 1. Requirements
+
+What it does:
+
+- Finds each show on TMDB. It uses the `tmdb_id` from the marker when there is one, and searches by name and year for the rest.
+- Saves what the tapes need: the show poster, the transparent title logo, each season's poster, and the show and season overviews for the back cover.
+- Downloads the images once into `~/Library/Application Support/FonyMediaCentre/art/`. They are never written to a drive.
+- Picks a spine colour from each poster.
+- Draws the tape parts in the UI from that data: front case (poster), spine (logo on the poster colour, season number underneath) and the two wall posters (show poster on the left, season poster on the right, show poster again if the season has none).
+
+Limits:
+
+- **Works offline.** With no network or no key, tapes still show, with a plain handwritten spine and no poster.
+- **Never guesses.** A search only counts when the name and year match exactly. Anything else stays unmatched for the editor (step 6), the same rule tapehead follows.
+- The TMDB key is read only in Rust and never reaches the UI or the logs.
+
+### 2. Size
+
+Today: 30 shows (23 with a marker id, 7 without), 114 seasons, 4 series movies.
+
+- **API calls:** one `/tv/{id}` call per show also returns its seasons and images (`append_to_response=images`). So 23 calls, plus 7 searches, plus about 8 for the movies: **about 40 calls in total.** TMDB allows roughly 40 a second, and we make 4 at a time.
+- **Images:** 30 posters, 30 logos, up to 114 season posters, 4 movie posters: **about 180 files.** Posters at 780 px wide are about 120 KB, logos about 30 KB, so **about 20 MB.** The first fetch takes well under a minute. After that it only fetches new shows.
+- **Reads:** the shelf reads art paths from SQLite on every view; writes happen once per show. There is no throughput problem here. The design question is correctness (never the wrong show) and working offline.
+
+### 3. Parts
+
+| Part (Rust module) | Its one job | Owns | Calls |
+| --- | --- | --- | --- |
+| `metadata/tmdb.rs` | The only code that talks to TMDB: key, requests, retries, error messages | Nothing | TMDB over HTTPS |
+| `metadata/matching.rs` | Decides whether a search result is the same show (exact name and year). Plain functions | Nothing | Nothing |
+| `metadata/art.rs` | Downloads images into the art folder, picks the spine colour | Files in `art/` | `tmdb` (image URLs) |
+| `metadata/mod.rs` | Works through shows that need fetching, in the background, 4 at a time | Nothing | `tmdb`, `matching`, `art`, `db` |
+| `library/db/metadata_store.rs` | Writes the new tables | `tmdb_shows`, `tmdb_seasons`, `tmdb_matches` | SQLite |
+| `app/src/tape/` (React) | `Spine`, `Sleeve`, `WallPosters` components drawn from the data | Nothing | Tauri commands |
+
+```mermaid
+flowchart TD
+  UI[React tape components] -->|Tauri commands| Cmd[lib.rs commands]
+  Cmd -->|reads| DB[db]
+  Cmd --> Meta[metadata/mod.rs]
+  Scan[scan.rs] -->|new show found| Meta
+  Meta --> Tmdb[tmdb.rs]
+  Meta --> Match[matching.rs]
+  Meta --> Art[art.rs]
+  Meta -->|writes| DB
+  Tmdb --> API[(TMDB)]
+  Art --> Files[(art folder)]
+  UI -.images via asset protocol.-> Files
+```
+
+Nothing but `tmdb.rs` imports the HTTP client. The UI shows images straight from the art folder using Tauri's built-in asset protocol, limited to that one folder.
+
+### 4. Main journeys
+
+**First fetch (or a new show appears):**
+
+1. A scan finishes. `metadata` lists shows with no row in `tmdb_matches`, or whose marker id has changed.
+2. With a marker id: fetch `/tv/{id}` with seasons and images. Without one: search by name and year, and accept only an exact match. Otherwise record "unmatched".
+3. Save the show, seasons and match in one transaction.
+4. Download the poster, logo and season posters. Work out the spine colour from the poster and save it.
+5. Send a `metadata-progress` event so the dev screen updates.
+
+**Showing a tape:** the UI asks for a series' art. Rust returns the cached file paths, colour and overviews. Missing pieces come back empty, and the component draws its fallback.
+
+### 5. Commands (UI to Rust)
+
+| Command | Does | Returns |
+| --- | --- | --- |
+| `metadata_status` | Counts: matched, unmatched, waiting, failed, last error | A small object |
+| `metadata_refresh(series_id?)` | Fetches one show again, or everything still missing | Nothing; progress comes as events |
+| `series_art(series_id)` | Poster, logo and colour, plus each season's poster and overview | One object |
+
+`series_art` later folds into `library_overview` when the shelf is built (step 4).
+
+### 6. Database (migration 002)
+
+| Table | Key columns | Notes |
+| --- | --- | --- |
+| `tmdb_matches` | `series_id` PK (FK, cascade), `tmdb_id` (null = unmatched), `how` (marker, search, manual), `checked_at` | The answer to "which TMDB show is this folder?" The editor writes `manual` later. Kept apart from `series`, because the scanner overwrites `series` |
+| `tmdb_shows` | `tmdb_id` PK, `name`, `first_air_year`, `overview`, `poster_path`, `logo_path`, `spine_colour`, `fetched_at` | What TMDB said. Paths are TMDB's (e.g. `/abc.jpg`); the local file is `art/<size>/abc.jpg` |
+| `tmdb_seasons` | (`tmdb_id`, `season_number`) PK, `name`, `overview`, `poster_path` | Joined to our `seasons` by number |
+
+Movies follow the same pattern (`tmdb_movie_matches`, `tmdb_movies`) in their own slice.
+
+### 7. Caching
+
+- **The art folder is the image cache.** TMDB file names are unique per image, so a file that exists is never downloaded again. The database records which files we expect, so a deleted file is simply fetched again.
+- **TMDB data is fetched once** and only refreshed by `metadata_refresh` or a changed marker id. No timed expiry: old cartoon art doesn't change.
+
+### 8. When things go wrong
+
+| Problem | What happens | What Glitchy sees |
+| --- | --- | --- |
+| No network | Fetching stops and tries again on the next launch | Plain handwritten spines; dev screen says "offline" |
+| No key, or TMDB rejects it (401) | Fetching is switched off for this session | Dev screen: "TMDB key missing or rejected" |
+| Too many requests (429) | Waits 1, 2, then 4 seconds, then gives up on that show until next launch | Nothing, unless it keeps failing |
+| Search finds nothing exact | Show recorded as unmatched | Listed as unmatched; fixed in the editor later |
+| An image fails to download | That image is retried next launch | That part falls back (no poster, plain spine) |
+| A season has no poster | Right wall poster uses the show poster | As decided in the spec |
+
+Logs record the step and the TMDB status code, never the key or full URLs.
+
+### 9. When it would need to change
+
+- **The Movies, Shows and Anime folders** add about 1,200 files, and maybe 300 titles. That is still under a minute of fetching, so nothing changes.
+- **The packaged app** has no `.env.local`. Step 7 decides where the key lives then (a file in Application Support is the likely answer).
+- **Art drop-ins from the editor** sit beside TMDB art as overrides and take priority. That table comes with the editor (step 6).
+
+### 10. Build order
+
+1. **TMDB client and data.** Key loading, migration 002, fetch the 23 shows with marker ids. Check: `tmdb_shows` and `tmdb_seasons` filled in, and the dev screen counts 23 matched.
+2. **Art cache.** Download posters, logos and season posters, and show them through the asset protocol. Check: posters visible on the dev screen.
+3. **Spine colour and tape components.** `Spine`, `Sleeve` and `WallPosters` with fallbacks, plus a dev preview page. Check: Glitchy looks over the spines.
+4. **Search for shows without an id.** Exact name and year only. Check: a list of what matched and what didn't, with no wrong matches.
+5. **Series movies.** Same pattern for the 4 movies.

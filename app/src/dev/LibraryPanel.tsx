@@ -23,6 +23,14 @@ type LibraryCounts = {
   probedFiles: number;
 };
 
+type MetadataStatus = {
+  matched: number;
+  unmatched: number;
+  waiting: number;
+  isFetching: boolean;
+  lastError: string | null;
+};
+
 const config = {
   startFolder: "/Volumes/Glitchy_2TB/MEDIA",
   libraryKind: "cartoons",
@@ -32,6 +40,7 @@ export default function LibraryPanel() {
   const [drives, setDrives] = useState<Drive[] | null>(null);
   const [counts, setCounts] = useState<LibraryCounts | null>(null);
   const [reviewQueue, setReviewQueue] = useState<string[]>([]);
+  const [metadata, setMetadata] = useState<MetadataStatus | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,12 +54,14 @@ export default function LibraryPanel() {
 
   async function loadLibrary() {
     try {
-      const [latestCounts, latestQueue] = await Promise.all([
+      const [latestCounts, latestQueue, latestMetadata] = await Promise.all([
         invoke<LibraryCounts>("library_counts"),
         invoke<string[]>("library_review_queue"),
+        invoke<MetadataStatus>("metadata_status"),
       ]);
       setCounts(latestCounts);
       setReviewQueue(latestQueue);
+      setMetadata(latestMetadata);
     } catch (err) {
       setError(String(err));
     }
@@ -77,6 +88,16 @@ export default function LibraryPanel() {
       setError(String(err));
     }
     setIsScanning(false);
+  }
+
+  async function refreshMetadata() {
+    setError(null);
+    try {
+      await invoke("metadata_refresh");
+      await loadLibrary();
+    } catch (err) {
+      setError(String(err));
+    }
   }
 
   async function addFolder() {
@@ -142,6 +163,24 @@ export default function LibraryPanel() {
             Running times read for {counts.probedFiles} of {counts.files} files
           </span>
         </p>
+      )}
+
+      {metadata && (
+        <div className="mt-3 flex items-center justify-between gap-4">
+          <p>
+            TMDB: {metadata.matched} matched · {metadata.unmatched} unmatched · {metadata.waiting} waiting
+            {metadata.isFetching && <span className="text-vfd"> · fetching…</span>}
+            {metadata.lastError && <span className="block text-osd">{metadata.lastError}</span>}
+          </p>
+          <button
+            type="button"
+            className="min-w-32 rounded bg-plastic px-4 py-2"
+            onClick={refreshMetadata}
+            disabled={metadata.isFetching}
+          >
+            Refresh TMDB
+          </button>
+        </div>
       )}
 
       {hasReviewQueue && (

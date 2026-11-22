@@ -1,0 +1,52 @@
+{
+  "id": 720,
+  "name": "DuckTales",
+  "first_air_date": "1987-09-18",
+  "overview": "Scrooge McDuck finds his hands full at home when nephews Huey, Dewey and Louie move to Duckburg. Joined by their loyal pals Launchpad McQuack, Gyro Gearloose and Mrs. Beakley, the DuckTales gang never fails to deliver a wealth of adventure. Get ready for a fortune of fun with DuckTales!",
+  "poster_path": "/l39HDf6WYzV8VLY5EnCRC81DWOy.jpg",
+  "seasons": [
+    {
+      "season_number": 1,
+      "name": "Season 1",
+      "overview": "",
+      "poster_path": "/dNBaXrbAMmfKcZv8kAAsV8ynPC4.jpg"
+    },
+    {
+      "season_number": 2,
+      "name": "Season 2",
+      "overview": "",
+      "poster_path": "/gEYg2CkZ0bcszH6EGxO3fIW4fWA.jpg"
+    },
+    {
+      "season_number": 3,
+      "name": "Season 3",
+      "overview": "",
+      "poster_path": "/8SiI4D9FQ3SzSAdAE44LC7islM9.jpg"
+    },
+    {
+      "season_number": 4,
+      "name": "Season 4",
+      "overview": "",
+      "poster_path": "/euxJZlnZO17kv2TXqJIAMzebnUX.jpg"
+    }
+  ],
+  "images": {
+    "logos": [
+      {
+        "file_path": "/rx0din6FtPgTy5ZRAI2JuOCH283.png",
+        "iso_639_1": "en",
+        "vote_average": 3.334
+      },
+      {
+        "file_path": "/t62myL1p738v9DSuv09dM8VkNxS.png",
+        "iso_639_1": "en",
+        "vote_average": 0.166
+      },
+      {
+        "file_path": "/jYcADcfsxfIvxRDATGX3KuBpoie.png",
+        "iso_639_1": "en",
+        "vote_average": 0.0
+      }
+    ]
+  }
+}
