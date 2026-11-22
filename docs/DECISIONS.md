@@ -8,7 +8,7 @@ Design: `docs/ARCHITECTURE.md` (Metadata and art).
 
 - **`ureq` for HTTP.** Small and blocking, runs on a background thread like ffprobe. About 40 calls don't need async. Rejected: `reqwest` (bigger, async, more crates).
 - **`image` crate (JPEG and PNG only) for the spine colour.** Worked out once in Rust when the poster downloads, then saved. Rejected: reading pixels in the webview (local images may be blocked from canvas reads).
-- **Exact search for shows without a marker id.** Name and year must match exactly, or the show stays unmatched for the editor. Rejected: no search at all.
+- **Exact search for shows without a marker id.** Name (or original name) and first air year must match, ignoring case, punctuation and "&" versus "and", and **exactly one** result may pass. Two exact hits (Little Miss) or no year (Looney Tunes) means unmatched, for the editor. A failed search is recorded so it doesn't repeat every launch; **Refresh TMDB** retries it. Rejected: no search at all; taking the top result.
 - **Matches live in their own table (`tmdb_matches`), not on `series`.** The scanner overwrites `series` on every scan, and the editor will write manual matches.
 - **Tape parts are drawn by React components from data, not saved as images.** Cheap to change, and editor overrides drop straight in.
 

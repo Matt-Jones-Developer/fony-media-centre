@@ -1,10 +1,34 @@
 //! TMDB metadata and art for the shelf. See docs/ARCHITECTURE.md "Metadata and art".
 
 pub mod art;
+pub mod matching;
 pub mod tmdb;
 
 use std::thread;
 use tmdb::{ShowDetails, Tmdb, TmdbError};
+
+/// How a series folder was matched to its TMDB show.
+#[derive(Clone, Copy)]
+pub enum MatchedBy {
+    Marker,
+    Search,
+}
+
+impl MatchedBy {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            MatchedBy::Marker => "marker",
+            MatchedBy::Search => "search",
+        }
+    }
+}
+
+/// A series folder with no marker id, to look up by name and year.
+pub struct SearchJob {
+    pub series_id: i64,
+    pub name: String,
+    pub year: Option<i32>,
+}
 
 /// A series folder whose TMDB show needs fetching.
 pub struct ShowJob {
@@ -15,6 +39,19 @@ pub struct ShowJob {
 pub struct ShowResult {
     pub series_id: i64,
     pub result: Result<ShowDetails, TmdbError>,
+}
+
+/// Searches TMDB for a folder by name and year, then fetches the show if exactly one result matches.
+/// `Ok(None)` means no clear match.
+pub fn search_show(tmdb: &Tmdb, job: &SearchJob) -> Result<Option<ShowDetails>, TmdbError> {
+    let Some(year) = job.year else {
+        return Ok(None);
+    };
+    let results = tmdb.search_tv(&job.name, year)?;
+    let Some(tmdb_id) = matching::pick_exact(&job.name, job.year, &results) else {
+        return Ok(None);
+    };
+    tmdb.show(tmdb_id).map(Some)
 }
 
 /// Fetches `jobs` with `workers` requests running at once.

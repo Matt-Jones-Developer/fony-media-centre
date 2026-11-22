@@ -35,6 +35,15 @@ pub struct SeasonDetails {
     pub poster_path: Option<String>,
 }
 
+/// One TV search result: just enough to decide whether it's the same show.
+#[derive(Debug, PartialEq)]
+pub struct SearchResult {
+    pub tmdb_id: i64,
+    pub name: String,
+    pub original_name: Option<String>,
+    pub first_air_year: Option<i32>,
+}
+
 #[derive(Debug, PartialEq)]
 pub enum TmdbError {
     KeyMissing,
@@ -97,6 +106,25 @@ impl Tmdb {
             ],
         )?;
         Ok(show_details(raw))
+    }
+
+    /// TV shows called `name` that first aired in `year`. Only the first page: an exact name and year rarely gives more.
+    pub fn search_tv(&self, name: &str, year: i32) -> Result<Vec<SearchResult>, TmdbError> {
+        let year = year.to_string();
+        let page: RawSearchPage = self.get(
+            "/search/tv",
+            &[("query", name), ("first_air_date_year", year.as_str())],
+        )?;
+        let mut results = Vec::new();
+        for raw in page.results {
+            results.push(SearchResult {
+                tmdb_id: raw.id,
+                name: raw.name,
+                original_name: non_empty(raw.original_name),
+                first_air_year: year_of(raw.first_air_date.as_deref()),
+            });
+        }
+        Ok(results)
     }
 
     /// One image from TMDB's image server, e.g. size `w780` and path `/abc.jpg`. Needs no key.
@@ -169,6 +197,20 @@ fn key_from_env_file() -> Option<String> {
 }
 
 #[derive(Deserialize)]
+struct RawSearchPage {
+    #[serde(default)]
+    results: Vec<RawSearchResult>,
+}
+
+#[derive(Deserialize)]
+struct RawSearchResult {
+    id: i64,
+    name: String,
+    original_name: Option<String>,
+    first_air_date: Option<String>,
+}
+
+#[derive(Deserialize)]
 struct RawShow {
     id: i64,
     name: String,
@@ -215,16 +257,17 @@ fn show_details(raw: RawShow) -> ShowDetails {
     ShowDetails {
         tmdb_id: raw.id,
         name: raw.name,
-        first_air_year: raw
-            .first_air_date
-            .as_deref()
-            .and_then(|date| date.get(..4))
-            .and_then(|year| year.parse().ok()),
+        first_air_year: year_of(raw.first_air_date.as_deref()),
         overview: non_empty(raw.overview),
         poster_path: non_empty(raw.poster_path),
         logo_path: best_logo(&logos),
         seasons,
     }
+}
+
+/// "1987-09-18" to 1987. TMDB sends "" for an unknown date.
+fn year_of(date: Option<&str>) -> Option<i32> {
+    date?.get(..4)?.parse().ok()
 }
 
 /// English first, then PNG over SVG, then the best voted.
@@ -331,6 +374,17 @@ mod tests {
             Tmdb::from_env().unwrap().show(999_999_999),
             Err(TmdbError::NotFound)
         );
+    }
+
+    /// Calls TMDB for real: `cargo test -- --ignored`. Needs the network and the key.
+    #[test]
+    #[ignore]
+    fn searches_tmdb_by_name_and_year() {
+        let results = Tmdb::from_env()
+            .unwrap()
+            .search_tv("Dungeons & Dragons", 1983)
+            .unwrap();
+        assert!(results.iter().any(|result| result.tmdb_id == 553));
     }
 
     /// Calls TMDB for real: `cargo test -- --ignored`. Needs the network and the key.

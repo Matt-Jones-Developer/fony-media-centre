@@ -1,9 +1,9 @@
 //! Which series need TMDB data, and saving what TMDB sent.
 
 use super::Library;
-use crate::metadata::ShowJob;
 use crate::metadata::art::{ArtImage, SeasonArtRow, SeriesArtRow};
 use crate::metadata::tmdb::ShowDetails;
+use crate::metadata::{MatchedBy, SearchJob, ShowJob};
 use rusqlite::params;
 use serde::Serialize;
 
@@ -13,6 +13,8 @@ pub struct MetadataCounts {
     pub matched: i64,
     pub unmatched: i64,
     pub waiting: i64,
+    /// Folders a search couldn't place, for the editor.
+    pub unmatched_names: Vec<String>,
 }
 
 impl Library {
@@ -47,8 +49,60 @@ impl Library {
         Ok(jobs)
     }
 
+    /// Series with no marker id that haven't been searched for yet.
+    /// With `retry_unmatched`, also those a search couldn't place last time.
+    pub fn shows_to_search(&self, retry_unmatched: bool) -> Result<Vec<SearchJob>, String> {
+        let mut query = self
+            .conn
+            .prepare(
+                "SELECT series.id, series.name, series.year
+                 FROM series LEFT JOIN tmdb_matches ON tmdb_matches.series_id = series.id
+                 WHERE series.tmdb_id IS NULL
+                   AND (tmdb_matches.series_id IS NULL
+                        OR (?1 AND tmdb_matches.how = 'search' AND tmdb_matches.tmdb_id IS NULL))
+                 ORDER BY series.name",
+            )
+            .map_err(|err| err.to_string())?;
+        let rows = query
+            .query_map(params![retry_unmatched], |row| {
+                Ok(SearchJob {
+                    series_id: row.get(0)?,
+                    name: row.get(1)?,
+                    year: row.get(2)?,
+                })
+            })
+            .map_err(|err| err.to_string())?;
+        let mut jobs = Vec::new();
+        for row in rows {
+            jobs.push(row.map_err(|err| err.to_string())?);
+        }
+        Ok(jobs)
+    }
+
+    /// Records that a search found no clear match, so it isn't repeated on every launch.
+    /// A match Glitchy set by hand (later, in the editor) is never overwritten.
+    pub fn save_unmatched(&mut self, series_id: i64) -> Result<(), String> {
+        self.conn
+            .execute(
+                "INSERT INTO tmdb_matches (series_id, tmdb_id, how, checked_at)
+                 VALUES (?1, NULL, 'search', strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+                 ON CONFLICT (series_id) DO UPDATE SET
+                   tmdb_id = NULL, how = 'search', checked_at = excluded.checked_at,
+                   updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+                 WHERE tmdb_matches.how <> 'manual'",
+                params![series_id],
+            )
+            .map(|_| ())
+            .map_err(|err| format!("Can't save a TMDB match: {err}"))
+    }
+
     /// Saves the show, replaces its seasons and records the match, all at once.
-    pub fn save_show(&mut self, series_id: i64, show: &ShowDetails) -> Result<(), String> {
+    pub fn save_show(
+        &mut self,
+        series_id: i64,
+        matched_by: MatchedBy,
+        show: &ShowDetails,
+    ) -> Result<(), String> {
         let tx = self.conn.transaction().map_err(|err| err.to_string())?;
         tx.execute(
             "INSERT INTO tmdb_shows (tmdb_id, name, first_air_year, overview, poster_path, logo_path, fetched_at)
@@ -95,11 +149,11 @@ impl Library {
 
         tx.execute(
             "INSERT INTO tmdb_matches (series_id, tmdb_id, how, checked_at)
-             VALUES (?1, ?2, 'marker', strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+             VALUES (?1, ?2, ?3, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
              ON CONFLICT (series_id) DO UPDATE SET
                tmdb_id = excluded.tmdb_id, how = excluded.how, checked_at = excluded.checked_at,
                updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')",
-            params![series_id, show.tmdb_id],
+            params![series_id, show.tmdb_id, matched_by.as_str()],
         )
         .map_err(|err| format!("Can't save a TMDB match: {err}"))?;
         tx.commit()
@@ -229,20 +283,35 @@ impl Library {
     }
 
     pub fn metadata_counts(&self) -> Result<MetadataCounts, String> {
-        let waiting = i64::try_from(self.shows_to_fetch(None)?.len()).unwrap_or(i64::MAX);
-        self.conn
-            .query_row(
-                "SELECT count(tmdb_id), count(*) - count(tmdb_id) FROM tmdb_matches",
-                [],
-                |row| {
-                    Ok(MetadataCounts {
-                        matched: row.get(0)?,
-                        unmatched: row.get(1)?,
-                        waiting,
-                    })
-                },
+        let waiting = self.shows_to_fetch(None)?.len() + self.shows_to_search(false)?.len();
+        let mut query = self
+            .conn
+            .prepare(
+                "SELECT series.name FROM tmdb_matches
+                 JOIN series ON series.id = tmdb_matches.series_id
+                 WHERE tmdb_matches.tmdb_id IS NULL
+                 ORDER BY series.name",
             )
-            .map_err(|err| format!("Can't count TMDB matches: {err}"))
+            .map_err(|err| err.to_string())?;
+        let rows = query
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(|err| err.to_string())?;
+        let mut unmatched_names = Vec::new();
+        for row in rows {
+            unmatched_names.push(row.map_err(|err| err.to_string())?);
+        }
+        let matched = self
+            .conn
+            .query_row("SELECT count(tmdb_id) FROM tmdb_matches", [], |row| {
+                row.get(0)
+            })
+            .map_err(|err| format!("Can't count TMDB matches: {err}"))?;
+        Ok(MetadataCounts {
+            matched,
+            unmatched: i64::try_from(unmatched_names.len()).unwrap_or(i64::MAX),
+            waiting: i64::try_from(waiting).unwrap_or(i64::MAX),
+            unmatched_names,
+        })
     }
 }
 
@@ -300,35 +369,44 @@ mod tests {
         let jobs = library.shows_to_fetch(None).unwrap();
         assert_eq!(jobs.len(), 1);
         assert_eq!((jobs[0].series_id, jobs[0].tmdb_id), (1, 720));
-        assert_eq!(library.metadata_counts().unwrap().waiting, 1);
+        // Looney Tunes has no id, so it waits for a search instead.
+        assert_eq!(library.metadata_counts().unwrap().waiting, 2);
     }
 
     #[test]
     fn a_saved_show_is_not_fetched_again() {
         let mut library = library_with_two_series();
-        library.save_show(1, &ducktales(720, 4)).unwrap();
+        library
+            .save_show(1, MatchedBy::Marker, &ducktales(720, 4))
+            .unwrap();
 
         assert!(library.shows_to_fetch(None).unwrap().is_empty());
         assert_eq!(season_count(&library), 4);
         let counts = library.metadata_counts().unwrap();
         assert_eq!(
             (counts.matched, counts.unmatched, counts.waiting),
-            (1, 0, 0)
+            (1, 0, 1)
         );
     }
 
     #[test]
     fn saving_again_replaces_the_seasons() {
         let mut library = library_with_two_series();
-        library.save_show(1, &ducktales(720, 4)).unwrap();
-        library.save_show(1, &ducktales(720, 3)).unwrap();
+        library
+            .save_show(1, MatchedBy::Marker, &ducktales(720, 4))
+            .unwrap();
+        library
+            .save_show(1, MatchedBy::Marker, &ducktales(720, 3))
+            .unwrap();
         assert_eq!(season_count(&library), 3);
     }
 
     #[test]
     fn a_changed_marker_id_is_fetched_again() {
         let mut library = library_with_two_series();
-        library.save_show(1, &ducktales(720, 4)).unwrap();
+        library
+            .save_show(1, MatchedBy::Marker, &ducktales(720, 4))
+            .unwrap();
         library
             .conn
             .execute("UPDATE series SET tmdb_id = 721 WHERE id = 1", [])
@@ -343,7 +421,7 @@ mod tests {
         let mut library = library_with_two_series();
         let mut show = ducktales(720, 2);
         show.seasons[0].poster_path = Some("/season1.jpg".into());
-        library.save_show(1, &show).unwrap();
+        library.save_show(1, MatchedBy::Marker, &show).unwrap();
 
         let wanted = library.art_wanted().unwrap();
         assert_eq!(wanted.len(), 3);
@@ -357,7 +435,7 @@ mod tests {
         let mut library = library_with_two_series();
         let mut show = ducktales(720, 2);
         show.seasons[0].poster_path = Some("/season1.jpg".into());
-        library.save_show(1, &show).unwrap();
+        library.save_show(1, MatchedBy::Marker, &show).unwrap();
         library
             .conn
             .execute_batch("INSERT INTO seasons (series_id, number) VALUES (1, 1), (1, 3)")
@@ -379,25 +457,60 @@ mod tests {
     #[test]
     fn a_new_poster_needs_its_colour_picked_again() {
         let mut library = library_with_two_series();
-        library.save_show(1, &ducktales(720, 1)).unwrap();
+        library
+            .save_show(1, MatchedBy::Marker, &ducktales(720, 1))
+            .unwrap();
         assert_eq!(library.posters_needing_colour().unwrap().len(), 1);
 
         library.save_spine_colour(720, "#c81e1e").unwrap();
         assert!(library.posters_needing_colour().unwrap().is_empty());
-        library.save_show(1, &ducktales(720, 1)).unwrap();
+        library
+            .save_show(1, MatchedBy::Marker, &ducktales(720, 1))
+            .unwrap();
         assert!(library.posters_needing_colour().unwrap().is_empty());
 
         let mut new_poster = ducktales(720, 1);
         new_poster.poster_path = Some("/new.jpg".into());
-        library.save_show(1, &new_poster).unwrap();
+        library
+            .save_show(1, MatchedBy::Marker, &new_poster)
+            .unwrap();
         let needing = library.posters_needing_colour().unwrap();
         assert_eq!(needing, vec![(720, ArtImage::poster("/new.jpg".into()))]);
     }
 
     #[test]
+    fn a_failed_search_is_only_retried_when_asked() {
+        let mut library = library_with_two_series();
+        let jobs = library.shows_to_search(false).unwrap();
+        assert_eq!(jobs.len(), 1);
+        assert_eq!(
+            (jobs[0].series_id, jobs[0].name.as_str(), jobs[0].year),
+            (2, "Looney Tunes", None)
+        );
+
+        library.save_unmatched(2).unwrap();
+        assert!(library.shows_to_search(false).unwrap().is_empty());
+        assert_eq!(library.shows_to_search(true).unwrap().len(), 1);
+        let counts = library.metadata_counts().unwrap();
+        assert_eq!(counts.unmatched_names, vec!["Looney Tunes".to_string()]);
+    }
+
+    #[test]
+    fn a_search_match_is_not_searched_again() {
+        let mut library = library_with_two_series();
+        let mut found = ducktales(553, 1);
+        found.name = "Looney Tunes".into();
+        library.save_show(2, MatchedBy::Search, &found).unwrap();
+        assert!(library.shows_to_search(true).unwrap().is_empty());
+        assert_eq!(library.shows_to_fetch(None).unwrap().len(), 1);
+    }
+
+    #[test]
     fn asking_for_one_series_fetches_it_even_when_matched() {
         let mut library = library_with_two_series();
-        library.save_show(1, &ducktales(720, 4)).unwrap();
+        library
+            .save_show(1, MatchedBy::Marker, &ducktales(720, 4))
+            .unwrap();
         assert_eq!(library.shows_to_fetch(Some(1)).unwrap().len(), 1);
         assert!(library.shows_to_fetch(Some(2)).unwrap().is_empty());
     }

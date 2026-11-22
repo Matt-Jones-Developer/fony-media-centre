@@ -9,6 +9,7 @@ use library::db::{DriveSummary, Library, LibraryCounts, MetadataCounts};
 use library::parse::TidyRules;
 use library::probe;
 use library::scan;
+use metadata::MatchedBy;
 use metadata::art::{self, SeriesArt};
 use metadata::tmdb::Tmdb;
 use mpv::Mpv;
@@ -79,7 +80,8 @@ struct ArtFolder(PathBuf);
 /// Fetches TMDB data in the background: every show still missing, or just `only`.
 /// Then downloads any art that isn't on disk yet.
 /// If fetching is already running, this does nothing.
-fn start_fetching(app: &AppHandle, only: Option<i64>) {
+/// With `retry_unmatched`, shows a search couldn't place last time are searched again.
+fn start_fetching(app: &AppHandle, only: Option<i64>, retry_unmatched: bool) {
     if app
         .state::<Fetching>()
         .is_running
@@ -89,7 +91,7 @@ fn start_fetching(app: &AppHandle, only: Option<i64>) {
     }
     let handle = app.clone();
     std::thread::spawn(move || {
-        let outcome = fetch_all(&handle, only)
+        let outcome = fetch_all(&handle, only, retry_unmatched)
             .and_then(|_| download_art(&handle))
             .and_then(|_| colour_spines(&handle));
         let fetching = handle.state::<Fetching>();
@@ -102,22 +104,50 @@ fn start_fetching(app: &AppHandle, only: Option<i64>) {
 }
 
 /// Four requests at a time. Shows that fail are left unmatched and tried again next launch.
-fn fetch_all(app: &AppHandle, only: Option<i64>) -> Result<(), String> {
+/// Shows with a marker id first, then a search for the rest (only when fetching everything).
+fn fetch_all(app: &AppHandle, only: Option<i64>, retry_unmatched: bool) -> Result<(), String> {
     let workers = 4;
     let library = app.state::<LibraryState>();
-    let jobs = lock_library(&library)?.shows_to_fetch(only)?;
-    if jobs.is_empty() {
+    let (show_jobs, search_jobs) = {
+        let library = lock_library(&library)?;
+        let search_jobs = match only {
+            Some(_) => Vec::new(),
+            None => library.shows_to_search(retry_unmatched)?,
+        };
+        (library.shows_to_fetch(only)?, search_jobs)
+    };
+    if show_jobs.is_empty() && search_jobs.is_empty() {
         return Ok(());
     }
     let tmdb = Tmdb::from_env().map_err(|err| err.to_string())?;
 
     let mut failures = Vec::new();
-    for fetched in metadata::fetch_shows(&tmdb, &jobs, workers) {
+    for fetched in metadata::fetch_shows(&tmdb, &show_jobs, workers) {
         match fetched.result {
-            Ok(show) => lock_library(&library)?.save_show(fetched.series_id, &show)?,
+            Ok(show) => {
+                lock_library(&library)?.save_show(fetched.series_id, MatchedBy::Marker, &show)?
+            }
             Err(err) => failures.push(err.to_string()),
         }
     }
+
+    // Only a handful of shows have no marker, so one at a time is plenty.
+    for job in &search_jobs {
+        match metadata::search_show(&tmdb, job) {
+            Ok(Some(show)) => {
+                lock_library(&library)?.save_show(job.series_id, MatchedBy::Search, &show)?
+            }
+            Ok(None) => lock_library(&library)?.save_unmatched(job.series_id)?,
+            Err(err) => {
+                let should_stop = err.stops_everything();
+                failures.push(err.to_string());
+                if should_stop {
+                    break;
+                }
+            }
+        }
+    }
+
     let Some(first_failure) = failures.first() else {
         return Ok(());
     };
@@ -205,7 +235,7 @@ fn rescan_all(app: &AppHandle) -> Result<LibraryCounts, String> {
     app.emit("library-changed", ())
         .map_err(|err| format!("Can't tell the UI the library changed: {err}"))?;
     start_probing(app);
-    start_fetching(app, None);
+    start_fetching(app, None, false);
     Ok(counts)
 }
 
@@ -363,10 +393,10 @@ fn series_art(
     Ok(art::series_art(&art_folder.0, rows))
 }
 
-/// Fetches one show again, or with no id, every show still missing.
+/// Fetches one show again, or with no id, every show still missing (and retries failed searches).
 #[tauri::command]
 fn metadata_refresh(app: AppHandle, series_id: Option<i64>) {
-    start_fetching(&app, series_id);
+    start_fetching(&app, series_id, series_id.is_none());
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

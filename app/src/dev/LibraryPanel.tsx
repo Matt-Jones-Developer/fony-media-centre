@@ -27,6 +27,7 @@ type MetadataStatus = {
   matched: number;
   unmatched: number;
   waiting: number;
+  unmatchedNames: string[];
   isFetching: boolean;
   lastError: string | null;
 };
@@ -170,6 +171,9 @@ export default function LibraryPanel() {
           <p>
             TMDB: {metadata.matched} matched · {metadata.unmatched} unmatched · {metadata.waiting} waiting
             {metadata.isFetching && <span className="text-vfd"> · fetching…</span>}
+            {metadata.unmatchedNames.length > 0 && (
+              <span className="block text-paper-muted">Unmatched: {metadata.unmatchedNames.join(", ")}</span>
+            )}
             {metadata.lastError && <span className="block text-osd">{metadata.lastError}</span>}
           </p>
           <button
