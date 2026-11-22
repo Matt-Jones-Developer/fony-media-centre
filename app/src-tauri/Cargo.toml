@@ -30,6 +30,8 @@ serde_norway = "0.9.42"
 notify = "9"
 # Blocking HTTP for TMDB; runs on a background thread like ffprobe.
 ureq = { version = "3.5", features = ["json"] }
+# Reads posters to pick each spine's colour. JPEG and PNG only, to keep the build small.
+image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

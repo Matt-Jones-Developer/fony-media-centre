@@ -3,6 +3,7 @@
 
 use super::tmdb::Tmdb;
 use serde::Serialize;
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::thread;
@@ -60,6 +61,60 @@ pub fn save(path: &Path, bytes: &[u8]) -> Result<(), String> {
     fs::write(&partial, bytes)
         .and_then(|_| fs::rename(&partial, path))
         .map_err(|err| format!("Can't save an image: {err}"))
+}
+
+/// The poster's most common strong colour, e.g. `#8a2b1f`, for the spine label.
+/// Near-black, near-white and grey pixels are skipped, so a dark poster still gives its accent colour.
+pub fn spine_colour(poster: &[u8]) -> Result<String, String> {
+    let config = SpineColourConfig {
+        fallback: "#3a3a3c",
+        darkest: 40,
+        lightest: 215,
+        least_saturation: 40,
+    };
+    let decoded =
+        image::load_from_memory(poster).map_err(|err| format!("Can't read a poster: {err}"))?;
+    // Shrink only: enlarging a small image would blend its colours together.
+    let is_large = decoded.width() > 64 || decoded.height() > 96;
+    let image = if is_large {
+        decoded.thumbnail(64, 96).to_rgb8()
+    } else {
+        decoded.to_rgb8()
+    };
+
+    // Each bucket is a coarse colour (8 levels per channel), with the sums to average it back out.
+    let mut buckets: HashMap<(u8, u8, u8), (u32, [u32; 3])> = HashMap::new();
+    for pixel in image.pixels() {
+        let [red, green, blue] = pixel.0;
+        let brightest = red.max(green).max(blue);
+        let dimmest = red.min(green).min(blue);
+        let is_strong_colour = brightest >= config.darkest
+            && dimmest <= config.lightest
+            && brightest - dimmest >= config.least_saturation;
+        if !is_strong_colour {
+            continue;
+        }
+        let bucket = buckets
+            .entry((red >> 5, green >> 5, blue >> 5))
+            .or_insert((0, [0, 0, 0]));
+        bucket.0 += 1;
+        bucket.1[0] += u32::from(red);
+        bucket.1[1] += u32::from(green);
+        bucket.1[2] += u32::from(blue);
+    }
+
+    let Some((count, sums)) = buckets.into_values().max_by_key(|(count, _)| *count) else {
+        return Ok(config.fallback.to_string());
+    };
+    let [red, green, blue] = sums.map(|sum| sum / count);
+    Ok(format!("#{red:02x}{green:02x}{blue:02x}"))
+}
+
+struct SpineColourConfig {
+    fallback: &'static str,
+    darkest: u8,
+    lightest: u8,
+    least_saturation: u8,
 }
 
 pub struct DownloadReport {
@@ -132,6 +187,8 @@ pub struct SeriesArt {
     pub overview: Option<String>,
     pub poster_file: Option<String>,
     pub logo_file: Option<String>,
+    /// `#rrggbb`, or `None` until the poster has downloaded.
+    pub spine_colour: Option<String>,
     pub seasons: Vec<SeasonArt>,
 }
 
@@ -151,6 +208,7 @@ pub struct SeriesArtRow {
     pub overview: Option<String>,
     pub poster_path: Option<String>,
     pub logo_path: Option<String>,
+    pub spine_colour: Option<String>,
     pub seasons: Vec<SeasonArtRow>,
 }
 
@@ -186,6 +244,7 @@ pub fn series_art(art_folder: &Path, rows: Vec<SeriesArtRow>) -> Vec<SeriesArt> 
             logo_file: row
                 .logo_path
                 .and_then(|path| existing_file(art_folder, ArtImage::logo(path))),
+            spine_colour: row.spine_colour,
             seasons,
         });
     }
@@ -201,6 +260,48 @@ mod tests {
             std::env::temp_dir().join(format!("fony-art-test-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&folder);
         folder
+    }
+
+    fn png_of(colours: &[[u8; 3]]) -> Vec<u8> {
+        let width = u32::try_from(colours.len()).unwrap();
+        let mut image = image::RgbImage::new(width, 10);
+        for (x, _, pixel) in image.enumerate_pixels_mut() {
+            *pixel = image::Rgb(colours[usize::try_from(x).unwrap()]);
+        }
+        let mut bytes = std::io::Cursor::new(Vec::new());
+        image.write_to(&mut bytes, image::ImageFormat::Png).unwrap();
+        bytes.into_inner()
+    }
+
+    #[test]
+    fn picks_the_most_common_strong_colour_and_skips_black() {
+        let black = [5, 5, 5];
+        let red = [200, 30, 30];
+        let blue = [30, 30, 200];
+        let poster = png_of(&[black, black, black, black, black, red, red, red, blue]);
+        assert_eq!(spine_colour(&poster).unwrap(), "#c81e1e");
+    }
+
+    #[test]
+    fn falls_back_to_dark_grey_when_a_poster_has_no_strong_colour() {
+        let poster = png_of(&[[0, 0, 0], [128, 128, 128], [250, 250, 250]]);
+        assert_eq!(spine_colour(&poster).unwrap(), "#3a3a3c");
+        assert!(spine_colour(b"not an image").is_err());
+    }
+
+    /// Needs the art downloaded: `cargo test -- --ignored --nocapture`.
+    #[test]
+    #[ignore]
+    fn picks_a_colour_from_a_real_poster() {
+        let poster = dirs_art_folder().join("w780/l39HDf6WYzV8VLY5EnCRC81DWOy.jpg");
+        let colour = spine_colour(&fs::read(poster).unwrap()).unwrap();
+        println!("DuckTales spine: {colour}");
+        assert_eq!(colour.len(), 7);
+    }
+
+    fn dirs_art_folder() -> PathBuf {
+        PathBuf::from(std::env::var("HOME").unwrap())
+            .join("Library/Application Support/FonyMediaCentre/art")
     }
 
     #[test]

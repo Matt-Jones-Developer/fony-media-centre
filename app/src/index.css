@@ -19,3 +19,17 @@
   --color-paper: #e8e4da;
   --color-paper-muted: #a9a398;
 }
+
+@theme {
+  /* Kalam isn't bundled yet; Bradley Hand ships with macOS, so labels still look handwritten. */
+  --font-hand: "Kalam", "Bradley Hand", cursive;
+}
+
+/* Fine vertical ribbing on black VHS plastic. */
+@utility spine-ribs {
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--color-plastic-dark) 0 2px,
+    var(--color-plastic) 2px 3px
+  );
+}

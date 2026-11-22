@@ -89,7 +89,9 @@ fn start_fetching(app: &AppHandle, only: Option<i64>) {
     }
     let handle = app.clone();
     std::thread::spawn(move || {
-        let outcome = fetch_all(&handle, only).and_then(|_| download_art(&handle));
+        let outcome = fetch_all(&handle, only)
+            .and_then(|_| download_art(&handle))
+            .and_then(|_| colour_spines(&handle));
         let fetching = handle.state::<Fetching>();
         if let Ok(mut last_error) = fetching.last_error.lock() {
             *last_error = outcome.err();
@@ -139,6 +141,24 @@ fn download_art(app: &AppHandle) -> Result<(), String> {
         "{} images failed: {first_failure}",
         report.failures.len()
     ))
+}
+
+/// Picks a spine colour for every downloaded poster that doesn't have one yet.
+fn colour_spines(app: &AppHandle) -> Result<(), String> {
+    let library = app.state::<LibraryState>();
+    let art_folder = &app.state::<ArtFolder>().0;
+    let posters = lock_library(&library)?.posters_needing_colour()?;
+    for (tmdb_id, poster) in posters {
+        let Some(path) = art::local_path(art_folder, &poster) else {
+            continue;
+        };
+        let Ok(bytes) = fs::read(&path) else {
+            continue;
+        };
+        let colour = art::spine_colour(&bytes)?;
+        lock_library(&library)?.save_spine_colour(tmdb_id, &colour)?;
+    }
+    Ok(())
 }
 
 /// Watches /Volumes and the library folders. `None` if watching couldn't start.

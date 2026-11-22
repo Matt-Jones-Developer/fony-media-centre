@@ -182,7 +182,7 @@ Each is one `plan-ticket` slice and ends with something Glitchy can check.
 
 ## Metadata and art (Phase 1, step 2)
 
-Status: **approved 2026-11-22.** Slices 1 and 2 built.
+Status: **approved 2026-11-22.** Slices 1 to 3 built.
 
 ### 1. Requirements
 

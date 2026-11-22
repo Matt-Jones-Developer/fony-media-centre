@@ -54,6 +54,9 @@ impl Library {
             "INSERT INTO tmdb_shows (tmdb_id, name, first_air_year, overview, poster_path, logo_path, fetched_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
              ON CONFLICT (tmdb_id) DO UPDATE SET
+               -- A new poster needs its spine colour picked again.
+               spine_colour = CASE WHEN tmdb_shows.poster_path IS excluded.poster_path
+                                   THEN tmdb_shows.spine_colour END,
                name = excluded.name, first_air_year = excluded.first_air_year,
                overview = excluded.overview, poster_path = excluded.poster_path,
                logo_path = excluded.logo_path, fetched_at = excluded.fetched_at,
@@ -135,7 +138,8 @@ impl Library {
         let mut shows = self
             .conn
             .prepare(
-                "SELECT series.id, series.name, tmdb_shows.overview, tmdb_shows.poster_path, tmdb_shows.logo_path
+                "SELECT series.id, series.name, tmdb_shows.overview, tmdb_shows.poster_path,
+                        tmdb_shows.logo_path, tmdb_shows.spine_colour
                  FROM series
                  JOIN tmdb_matches ON tmdb_matches.series_id = series.id
                  JOIN tmdb_shows ON tmdb_shows.tmdb_id = tmdb_matches.tmdb_id
@@ -150,6 +154,7 @@ impl Library {
                     overview: row.get(2)?,
                     poster_path: row.get(3)?,
                     logo_path: row.get(4)?,
+                    spine_colour: row.get(5)?,
                     seasons: Vec::new(),
                 })
             })
@@ -187,6 +192,40 @@ impl Library {
             }
         }
         Ok(all_rows)
+    }
+
+    /// Shows with a poster but no spine colour yet, as (TMDB id, poster image).
+    pub fn posters_needing_colour(&self) -> Result<Vec<(i64, ArtImage)>, String> {
+        let mut query = self
+            .conn
+            .prepare(
+                "SELECT tmdb_id, poster_path FROM tmdb_shows
+                 WHERE poster_path IS NOT NULL AND spine_colour IS NULL",
+            )
+            .map_err(|err| err.to_string())?;
+        let rows = query
+            .query_map([], |row| {
+                Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+            })
+            .map_err(|err| err.to_string())?;
+        let mut posters = Vec::new();
+        for row in rows {
+            let (tmdb_id, poster_path) = row.map_err(|err| err.to_string())?;
+            posters.push((tmdb_id, ArtImage::poster(poster_path)));
+        }
+        Ok(posters)
+    }
+
+    pub fn save_spine_colour(&mut self, tmdb_id: i64, colour: &str) -> Result<(), String> {
+        self.conn
+            .execute(
+                "UPDATE tmdb_shows SET spine_colour = ?2,
+                   updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+                 WHERE tmdb_id = ?1",
+                params![tmdb_id, colour],
+            )
+            .map(|_| ())
+            .map_err(|err| format!("Can't save a spine colour: {err}"))
     }
 
     pub fn metadata_counts(&self) -> Result<MetadataCounts, String> {
@@ -335,6 +374,24 @@ mod tests {
             .collect();
         // Season 3 is on the drive but not on TMDB: still listed, with no poster.
         assert_eq!(seasons, vec![(1, Some("/season1.jpg")), (3, None)]);
+    }
+
+    #[test]
+    fn a_new_poster_needs_its_colour_picked_again() {
+        let mut library = library_with_two_series();
+        library.save_show(1, &ducktales(720, 1)).unwrap();
+        assert_eq!(library.posters_needing_colour().unwrap().len(), 1);
+
+        library.save_spine_colour(720, "#c81e1e").unwrap();
+        assert!(library.posters_needing_colour().unwrap().is_empty());
+        library.save_show(1, &ducktales(720, 1)).unwrap();
+        assert!(library.posters_needing_colour().unwrap().is_empty());
+
+        let mut new_poster = ducktales(720, 1);
+        new_poster.poster_path = Some("/new.jpg".into());
+        library.save_show(1, &new_poster).unwrap();
+        let needing = library.posters_needing_colour().unwrap();
+        assert_eq!(needing, vec![(720, ArtImage::poster("/new.jpg".into()))]);
     }
 
     #[test]

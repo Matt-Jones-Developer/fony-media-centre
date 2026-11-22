@@ -1,26 +1,16 @@
 import { useEffect, useState } from "react";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import Sleeve from "../tape/Sleeve";
+import Spine from "../tape/Spine";
+import WallPosters from "../tape/WallPosters";
+import type { SeriesArt } from "../types/art";
 
-type SeasonArt = {
-  number: number;
-  name: string | null;
-  overview: string | null;
-  posterFile: string | null;
-};
-
-type SeriesArt = {
-  seriesId: number;
-  name: string;
-  overview: string | null;
-  posterFile: string | null;
-  logoFile: string | null;
-  seasons: SeasonArt[];
-};
 
 export default function ArtPanel() {
   const [allArt, setAllArt] = useState<SeriesArt[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selectedSeason, setSelectedSeason] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function loadArt() {
@@ -40,35 +30,60 @@ export default function ArtPanel() {
   }, []);
 
   const selected = allArt.find((show) => show.seriesId === selectedId);
+  const season = selected?.seasons.find((each) => each.number === selectedSeason) ?? selected?.seasons[0];
   const downloadedPosters = allArt.filter((show) => show.posterFile).length;
 
   function toggleShow(seriesId: number) {
     setSelectedId(seriesId === selectedId ? null : seriesId);
+    setSelectedSeason(null);
   }
 
   return (
     <section aria-label="Art" className="mb-6 max-w-5xl rounded bg-black/40 p-4 font-mono text-sm">
       <h2 className="mb-1 tracking-widest">ART</h2>
       <p className="mb-3 text-paper-muted">
-        Posters on disk for {downloadedPosters} of {allArt.length} matched shows. Pick one to see its seasons above the grid.
+        Posters on disk for {downloadedPosters} of {allArt.length} matched shows. Pick one to see its tapes above the grid.
       </p>
 
       {selected && (
         <div className="mb-4 rounded bg-plastic-dark p-3">
           <h3 className="mb-2 tracking-widest">{selected.name}</h3>
           {selected.overview && <p className="mb-3 max-w-3xl text-xs text-paper-muted">{selected.overview}</p>}
-          <ul className="grid grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-3">
-            {selected.seasons.map((season) => (
-              <li key={season.number} className="text-xs">
-                <ArtImage
-                  file={season.posterFile}
-                  label={`${selected.name} season ${season.number} poster`}
-                  className="aspect-2/3 w-full"
+          <div className="flex flex-wrap items-start gap-6">
+            <ul aria-label="Spines" className="flex gap-2">
+              {selected.seasons.map((each) => (
+                <li key={each.number} className="h-72 w-12">
+                  <button
+                    type="button"
+                    aria-label={`${selected.name}, ${each.name ?? `season ${each.number}`}`}
+                    aria-pressed={each.number === season?.number}
+                    className="h-full w-full transition-transform aria-pressed:-translate-y-3 motion-reduce:transition-none"
+                    onClick={() => setSelectedSeason(each.number)}
+                  >
+                    <Spine
+                      name={selected.name}
+                      seasonNumber={each.number}
+                      logoFile={selected.logoFile}
+                      spineColour={selected.spineColour}
+                    />
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <div className="w-40">
+              <Sleeve name={selected.name} posterFile={selected.posterFile} />
+            </div>
+            {season && (
+              <div className="w-80">
+                <WallPosters
+                  name={selected.name}
+                  seasonNumber={season.number}
+                  showPosterFile={selected.posterFile}
+                  seasonPosterFile={season.posterFile}
                 />
-                <p className="mt-1">{season.name ?? `Season ${season.number}`}</p>
-              </li>
-            ))}
-          </ul>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

@@ -8,17 +8,19 @@ _Last updated: 2026-11-22._
 ## Where we are
 
 - **Phase 1, step 1 (library core): done.** Committed and pushed.
-- **Step 2 (TMDB metadata and art): slices 1 and 2 of 5 built.** Slice 1 committed (`a400831`, not pushed); slice 2 not committed. Design: `docs/ARCHITECTURE.md` "Metadata and art". Decisions: `docs/DECISIONS.md`.
-- Slice 1 result: all 23 shows with marker ids fetched (poster, logo and overview for every one), 135 TMDB seasons, all with posters. No wrong matches.
-- Slice 2 result: all 180 wanted images downloaded to `art/` (157 posters at w780, 23 logos at w500), 30 MB, no partial files. Dev screen has an **Art** panel served through the asset protocol.
+- **Step 2 (TMDB metadata and art): slices 1 to 3 of 5 built.** Slices 1 and 2 committed (`a400831`, `4c01e5d`, not pushed). Slice 3 not committed.
+- Slice 1: all 23 shows with marker ids fetched (poster, logo, overview), 135 TMDB seasons. No wrong matches.
+- Slice 2: all 180 images in `art/` (posters w780, logos w500), 30 MB. Dev **Art** panel via the asset protocol.
+- Slice 3: spine colour picked from each poster (`art::spine_colour`, all 23 done). Tape components in `app/src/tape/` (`Spine`, `Sleeve`, `WallPosters`), shared type in `app/src/types/art.ts`. Previewed in the Art panel: click a show, then a spine.
 - Code: `app/src-tauri/src/metadata/` (TMDB client, background fetch), `library/db/metadata_store.rs`, migration `002_metadata.sql`. Dev screen has a TMDB line and **Refresh TMDB**.
 - Step 1 slice detail: `docs/archive/2026-11-22-library-core-slices-1-5.md`.
 - Repo: https://github.com/Matt-Jones-Developer/fony-media-centre, branch `main`.
 
 ## Next session, in order
 
-1. **Glitchy checks slice 2:** the Art panel on the dev screen shows posters and logos, and clicking a show shows its season posters. If images show "broken", the asset protocol scope (`$DATA/FonyMediaCentre/art/**` in `tauri.conf.json`) is the first suspect. Then commit.
-2. Then slices 3 to 5: spine colour and tape components (adds the `image` crate), exact search for the 7 shows without ids, series movies.
+1. **Glitchy checks slice 3** in the Art panel (spines, case, wall posters), then commit.
+2. **Slice 4:** exact name and year search for the 7 shows without ids. Run `plan-ticket`.
+3. **Slice 5:** series movies.
 
 ## Open items
 
@@ -26,6 +28,7 @@ _Last updated: 2026-11-22._
 - **Watch progress key:** by file or by show/season/episode. Decide in the player step (DECISIONS, "Open").
 - **Bundled mpv:** which libmpv build to ship. Needed for packaging (step 7).
 - **Waiting on Glitchy:** quit with ⌘Q while something is playing and confirm the mpv window closes.
+- **Fonts aren't bundled:** no font is loaded yet (VT323, Kalam, Alfa Slab One, Roboto Mono). Handwritten labels fall back to macOS's Bradley Hand via `--font-hand`. Bundle them locally (offline app) before the home screen (step 3).
 - **TMDB key for the packaged app:** dev reads `.env.local`. Decide where it lives in step 7.
 
 ## How to run and check
