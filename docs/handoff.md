@@ -21,8 +21,7 @@ _Last updated: 2026-11-22._
 
 ## Next session, in order
 
-1. **Bundle the remaining fonts** the same way (VT323, Alfa Slab One, Roboto Mono bold, Inter) into `app/src/assets/fonts/`.
-2. **Step 3: home screen.** Run `plan-ticket` against `docs/mockups/Main.dc.html` and `Boot.dc.html`; load `ux-laws` first. Needs `library_overview` (ARCHITECTURE section 5), which can absorb `series_art`.
+1. **Step 3: home screen.** Run `plan-ticket` against `docs/mockups/Main.dc.html` and `Boot.dc.html`; load `ux-laws` first. Needs `library_overview` (ARCHITECTURE section 5), which can absorb `series_art`.
 
 ## Open items
 
@@ -30,7 +29,7 @@ _Last updated: 2026-11-22._
 - **Watch progress key:** by file or by show/season/episode. Decide in the player step (DECISIONS, "Open").
 - **Bundled mpv:** which libmpv build to ship. Needed for packaging (step 7).
 - **Waiting on Glitchy:** quit with ⌘Q while something is playing and confirm the mpv window closes.
-- **Fonts:** Kalam and Sedgwick Ave Display are bundled. VT323, Alfa Slab One, Roboto Mono and Inter are not yet (needed for the home screen).
+- **Fonts:** all bundled in `app/src/assets/fonts/` with licences. Tokens: `font-sans` (Inter, now the default), `font-osd` (VT323), `font-wordmark` (Alfa Slab One; scale 1.18 wide where used), `font-dymo` (Roboto Mono bold), `font-hand` (Kalam), `font-graf` (Sedgwick Ave Display).
 - **Season numbering:** Dexter's Lab and Pinky and the Brain use local season numbers, so a season poster may belong to a different TMDB season. Fix in the editor.
 - **TMDB key for the packaged app:** dev reads `.env.local`. Decide where it lives in step 7.
 
