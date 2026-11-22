@@ -410,6 +410,7 @@ mod tests {
                 mode: SeriesMode::Tmdb,
                 source: SeriesSource::Marker,
                 files,
+                used_loose_rules: false,
             }],
             loose_files: Vec::new(),
         }

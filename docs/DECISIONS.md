@@ -2,6 +2,12 @@
 
 Choices that are expensive to undo. Newest first. Each entry: what, why, what was rejected.
 
+## 2026-11-22: Looser name rules for untidy folders (approved)
+
+- **Looney Tunes shorts are grouped into one season per decade**, in release order. The season number is the decade's first year (1930, 1940, 1950, 1960), so the spine can show "1930s". Rejected: one season per year (37 thin tapes, several with one short); by Golden Collection volume (the files don't say which volume).
+- **A folder placed by the looser rules still counts as untidy** (`is_tidy = 0`), so it stays flagged for tapehead or the editor. Its files are placed and playable, so they leave the unplaced list.
+- **Private Snafu (2 wartime shorts in the Looney Tunes folder) stays unplaced** on purpose. They aren't Looney Tunes.
+
 ## 2026-11-22: Library core (approved)
 
 Settled with Glitchy:

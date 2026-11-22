@@ -1,6 +1,7 @@
 //! Walks one library folder (e.g. MEDIA/Cartoons) and works out every show and file in it.
 //! Only reads the drive. The result goes to `db::save_scan`, which does all the writing.
 
+use super::loose::LooseRules;
 use super::markers::{self, FolderRule, Mode, SeriesInfo};
 use super::parse::{Placement, TidyRules, is_video};
 use std::fs;
@@ -22,15 +23,18 @@ pub struct ScannedSeries {
     pub mode: SeriesMode,
     pub source: SeriesSource,
     pub files: Vec<(ScannedFile, Placement)>,
+    /// Some files were only placed by the looser rules, so tapehead hasn't tidied this folder yet.
+    pub used_loose_rules: bool,
 }
 
 impl ScannedSeries {
     /// Tidy means every file fits the layout. Untidy shows go to the review queue.
     pub fn is_tidy(&self) -> bool {
-        !self
-            .files
-            .iter()
-            .any(|(_, placement)| *placement == Placement::Unplaced)
+        !self.used_loose_rules
+            && !self
+                .files
+                .iter()
+                .any(|(_, placement)| *placement == Placement::Unplaced)
     }
 }
 
@@ -85,6 +89,7 @@ pub fn scan_library_folder(
 ) -> Result<ScanResult, String> {
     // A broken series.yaml means no folder rules, the same as having none.
     let series_map = markers::read_series_map(library_folder).unwrap_or_default();
+    let loose = LooseRules::new();
     let mut result = ScanResult {
         series: Vec::new(),
         loose_files: Vec::new(),
@@ -111,7 +116,7 @@ pub fn scan_library_folder(
             Some(info) => result.series.extend(scan_marked_show(&show, info, rules)?),
             None => result
                 .series
-                .extend(scan_unmarked_show(&show, &series_map, rules)?),
+                .extend(scan_unmarked_show(&show, &series_map, rules, &loose)?),
         }
     }
     Ok(result)
@@ -133,6 +138,7 @@ fn scan_marked_show(
     let Some(mode) = series_mode(info.mode) else {
         return Ok(None);
     };
+    let placed = placed_files(show.path, show.rel_path, &[], rules, None)?;
     Ok(Some(ScannedSeries {
         folder: show.folder.to_string(),
         name: info.name,
@@ -140,16 +146,19 @@ fn scan_marked_show(
         tmdb_id: info.tmdb_id,
         mode,
         source: SeriesSource::Marker,
-        files: placed_files(show.path, show.rel_path, &[], rules)?,
+        files: placed.files,
+        used_loose_rules: placed.used_loose_rules,
     }))
 }
 
 /// No marker: `series.yaml` may hide the folder or pick out a subfolder to show as its own series.
 /// Otherwise the folder name gives the show's name and year.
+/// Files that don't fit the tidy layout get a second try with the looser rules.
 fn scan_unmarked_show(
     show: &ShowFolder,
     series_map: &[markers::SeriesMapEntry],
     rules: &TidyRules,
+    loose: &LooseRules,
 ) -> Result<Vec<ScannedSeries>, String> {
     let subfolders = subfolder_names(show.path)?;
     let folder_rules = markers::folder_rules(show.folder, &subfolders, series_map);
@@ -167,6 +176,13 @@ fn scan_unmarked_show(
         let Some(mode) = series_mode(rule.info.mode) else {
             continue;
         };
+        let placed = placed_files(
+            &show.path.join(subfolder),
+            &format!("{}/{subfolder}", show.rel_path),
+            &[],
+            rules,
+            Some(loose),
+        )?;
         series.push(ScannedSeries {
             folder: format!("{}/{subfolder}", show.folder),
             name: rule.info.name.clone(),
@@ -174,16 +190,21 @@ fn scan_unmarked_show(
             tmdb_id: rule.info.tmdb_id,
             mode,
             source: SeriesSource::SeriesYaml,
-            files: placed_files(
-                &show.path.join(subfolder),
-                &format!("{}/{subfolder}", show.rel_path),
-                &[],
-                rules,
-            )?,
+            files: placed.files,
+            used_loose_rules: placed.used_loose_rules,
         });
     }
 
-    let files = placed_files(show.path, show.rel_path, &claimed_subfolders, rules)?;
+    let PlacedFiles {
+        files,
+        used_loose_rules,
+    } = placed_files(
+        show.path,
+        show.rel_path,
+        &claimed_subfolders,
+        rules,
+        Some(loose),
+    )?;
     if files.is_empty() {
         return Ok(series);
     }
@@ -197,9 +218,10 @@ fn scan_unmarked_show(
             mode,
             source: SeriesSource::SeriesYaml,
             files,
+            used_loose_rules,
         }),
         None => {
-            let (name, year) = rules.name_and_year(show.folder);
+            let (name, year) = loose.show_name_and_year(show.folder);
             Some(ScannedSeries {
                 folder: show.folder.to_string(),
                 name,
@@ -208,6 +230,7 @@ fn scan_unmarked_show(
                 mode: SeriesMode::Local,
                 source: SeriesSource::Parsed,
                 files,
+                used_loose_rules,
             })
         }
     };
@@ -225,22 +248,52 @@ fn series_mode(mode: Mode) -> Option<SeriesMode> {
     }
 }
 
+struct PlacedFiles {
+    files: Vec<(ScannedFile, Placement)>,
+    used_loose_rules: bool,
+}
+
 /// Every video under `folder`, placed by the tidy rules, skipping the top-level subfolders in `skip`.
+/// With `loose`, files the tidy rules can't place get a second try with the looser ones.
 fn placed_files(
     folder: &Path,
     folder_rel_path: &str,
     skip: &[String],
     rules: &TidyRules,
-) -> Result<Vec<(ScannedFile, Placement)>, String> {
+    loose: Option<&LooseRules>,
+) -> Result<PlacedFiles, String> {
     let mut videos = Vec::new();
     collect_videos(folder, "", skip, &mut videos)?;
 
     let mut files = Vec::new();
-    for (path, path_in_show) in videos {
-        let file = scanned_file(&path, &format!("{folder_rel_path}/{path_in_show}"))?;
-        files.push((file, rules.place_file(&path_in_show)));
+    let mut untidy_paths = Vec::new();
+    for (path, path_in_show) in &videos {
+        let file = scanned_file(path, &format!("{folder_rel_path}/{path_in_show}"))?;
+        let placement = rules.place_file(path_in_show);
+        if placement == Placement::Unplaced {
+            untidy_paths.push((files.len(), path_in_show.as_str()));
+        }
+        files.push((file, placement));
     }
-    Ok(files)
+
+    let Some(loose) = loose else {
+        return Ok(PlacedFiles {
+            files,
+            used_loose_rules: false,
+        });
+    };
+    let paths: Vec<&str> = untidy_paths.iter().map(|(_, path)| *path).collect();
+    let mut used_loose_rules = false;
+    for ((index, _), placement) in untidy_paths.iter().zip(loose.place_files(&paths)) {
+        if placement != Placement::Unplaced {
+            used_loose_rules = true;
+        }
+        files[*index].1 = placement;
+    }
+    Ok(PlacedFiles {
+        files,
+        used_loose_rules,
+    })
 }
 
 /// Depth-first walk. `prefix` is the path so far inside the show, e.g. "Season 01/".
@@ -354,6 +407,11 @@ mod tests {
         assert!(!folders.contains(&"The Pink Panther Cartoon Collection"));
         assert!(folders.contains(&"Dungeons & Dragons (1983)"));
         assert_eq!(result.series.len(), 30);
-        assert!(placed > 2100);
+        assert!(placed > 2600);
+        // Only the two Private Snafu shorts inside the Looney Tunes folder.
+        assert_eq!(unplaced, 2);
+        assert!(result.series.iter().any(|series| series.name
+            == "He-Man and the Masters of the Universe"
+            && series.year == Some(1983)));
     }
 }
