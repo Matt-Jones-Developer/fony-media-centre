@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
+import LibraryPanel from "./LibraryPanel";
 
 type PlayerState = {
   path: string | null;
@@ -89,6 +90,8 @@ export default function MpvDevScreen() {
     <main className="min-h-screen bg-ash-dark p-8 font-sans text-paper">
       <h1 className="mb-1 font-mono text-xl tracking-widest">FONY · MPV DEV SCREEN</h1>
       <p className="mb-6 text-sm text-paper-muted">Phase 0c test bench. Playback opens in its own mpv window.</p>
+
+      <LibraryPanel />
 
       <section aria-label="Transport" className="mb-6 flex flex-wrap gap-2">
         <button type="button" className="rounded bg-dymo-blue px-4 py-2 font-mono font-bold" onClick={pickAndPlay}>

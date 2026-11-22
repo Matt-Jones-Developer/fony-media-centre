@@ -7,12 +7,47 @@ use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct VolumeInfo {
     pub mount_point: String,
     pub volume_name: Option<String>,
     pub volume_uuid: Option<String>,
+}
+
+/// Every drive mounted under /Volumes that has a UUID. Ones that can't be read are skipped.
+pub fn mounted_volumes() -> Vec<VolumeInfo> {
+    let Ok(entries) = fs::read_dir("/Volumes") else {
+        return Vec::new();
+    };
+    let mut volumes = Vec::new();
+    for entry in entries.flatten() {
+        let Ok(volume) = volume_info(&entry.path()) else {
+            continue;
+        };
+        if volume.volume_uuid.is_some() {
+            volumes.push(volume);
+        }
+    }
+    volumes
+}
+
+/// Where `folder` sits inside the drive mounted at `mount_point`, e.g. "MEDIA/Cartoons".
+pub fn path_on_drive(folder: &Path, mount_point: &Path) -> Result<String, String> {
+    let relative = folder.strip_prefix(mount_point).map_err(|_| {
+        format!(
+            "{} isn't on the drive at {}",
+            folder.display(),
+            mount_point.display()
+        )
+    })?;
+    let relative = relative
+        .to_str()
+        .ok_or("The folder name isn't valid text")?;
+    if relative.is_empty() {
+        return Err("Pick a folder inside the drive, not the whole drive".into());
+    }
+    Ok(relative.to_string())
 }
 
 pub fn volume_info(path: &Path) -> Result<VolumeInfo, String> {
@@ -73,6 +108,17 @@ mod tests {
             Some("Glitchy_2TB")
         );
         assert_eq!(plist_string(plist, "VolumeUUID"), None);
+    }
+
+    #[test]
+    fn gives_a_folder_path_relative_to_its_drive() {
+        let mount = Path::new("/Volumes/Glitchy_2TB");
+        assert_eq!(
+            path_on_drive(Path::new("/Volumes/Glitchy_2TB/MEDIA/Cartoons"), mount).unwrap(),
+            "MEDIA/Cartoons"
+        );
+        assert!(path_on_drive(mount, mount).is_err());
+        assert!(path_on_drive(Path::new("/Users/glitchy81"), mount).is_err());
     }
 
     #[test]

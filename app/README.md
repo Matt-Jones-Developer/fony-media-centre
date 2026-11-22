@@ -29,7 +29,9 @@ volume UUID, and confirm mpv quits. They only read from the drive.
 | Path | What |
 | --- | --- |
 | `src-tauri/src/mpv.rs` | Starts mpv, sends commands, forwards playback state to the UI |
-| `src-tauri/src/volume.rs` | Finds a path's drive and reads its volume UUID |
+| `src-tauri/src/watch.rs` | Watches drives coming and going and file changes in library folders, then triggers a rescan |
+| `src-tauri/src/drives.rs` | Lists mounted drives and reads their volume UUIDs |
+| `src-tauri/src/library/` | Scanner (`scan.rs`), file name rules (`parse.rs`), tapehead YAML (`markers.rs`), ffprobe (`probe.rs`), and the database (`db/`) with its migrations. The database is `~/Library/Application Support/FonyMediaCentre/library.db` |
 | `src-tauri/src/lib.rs` | The commands the UI calls, and the CRT presets |
 | `shaders/` | CRT shaders for mpv, with credits |
-| `src/dev/MpvDevScreen.tsx` | Phase 0c test bench |
+| `src/dev/MpvDevScreen.tsx` | Test bench: playback, CRT presets and the library drives panel (`LibraryPanel.tsx`) |
