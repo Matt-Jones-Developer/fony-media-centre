@@ -7,7 +7,7 @@ _Last updated: 2026-11-22._
 
 ## Where we are
 
-- **Phase 1, step 1 (library core): all 6 slices built.** Slice 6 (looser name rules) is not committed yet.
+- **Phase 1, step 1 (library core): all 6 slices built.** All committed (`d697369`), not pushed.
 - Design: `docs/ARCHITECTURE.md` (Library core). One-way decisions: `docs/DECISIONS.md`.
 - What each slice did and its results: `docs/archive/2026-11-22-library-core-slices-1-5.md` (slice 6 is in there too).
 - Repo: https://github.com/Matt-Jones-Developer/fony-media-centre, branch `main`.
@@ -15,8 +15,7 @@ _Last updated: 2026-11-22._
 ## Next session, in order
 
 1. **Glitchy checks slice 6:** `pnpm tauri dev`, press **Rescan**. Expect about 2,669 placed, 2 unplaced (Private Snafu), 3 untidy shows (He-Man, Looney Tunes, BEST of Pink Panther).
-2. **Commit slice 6** once signed off.
-3. **Step 2: TMDB metadata and art.** Run `system-design` (new external integration), then `plan-ticket`.
+2. **Step 2: TMDB metadata and art.** Run `system-design` (new external integration), then `plan-ticket`.
 
 ## Open items
 
