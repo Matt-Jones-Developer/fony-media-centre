@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+/* Palette from docs/design-direction.md. */
+@theme {
+  --color-wall: #4a4740;
+  --color-wall-dark: #2c2a26;
+  --color-ash: #2a2724;
+  --color-ash-dark: #1d1b19;
+  --color-plastic: #2b2b2d;
+  --color-plastic-dark: #1b1b1d;
+  --color-vfd: #5cf2d6;
+  --color-osd: #5dff6a;
+  --color-av-blue: #1630c4;
+  --color-vcr-gold: #d8c48f;
+  --color-label-cream: #efe9d8;
+  --color-dymo-black: #141414;
+  --color-dymo-red: #b3201f;
+  --color-dymo-blue: #1c3f8f;
+  --color-paper: #e8e4da;
+  --color-paper-muted: #a9a398;
+}

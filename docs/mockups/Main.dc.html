@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Fony Media Centre home screen</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=VT323&amp;family=Kalam:wght@400;700&amp;family=Alfa+Slab+One&amp;family=Inter:ital,wght@0,400;0,600;0,700;1,600&amp;family=Roboto+Mono:wght@700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#111}
+a{color:#f2efe6}a:hover{color:#ffffff}
+@keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}
+.blink{animation:blink 1s steps(1) infinite}
+.tape{transition:transform .18s ease}
+.tape:hover{transform:translateY(-6px)}
+.tape:focus-visible,.dymo:focus-visible{outline:3px solid #ffd27a;outline-offset:3px}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; position: relative; overflow: hidden; font-family: Inter, system-ui, sans-serif; color: #e8e4da; background: linear-gradient(180deg, #4a4740 0%, #3b3833 60%, #2c2a26 100%)">
+
+  <!-- wall texture: painted woodchip grain -->
+  <svg style="position: absolute; inset: 0" width="1440" height="900" aria-hidden="true">
+    <filter id="wallgrain"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="4"/><feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.55 0"/></filter>
+    <rect width="1440" height="900" filter="url(#wallgrain)" opacity="0.5"/>
+  </svg>
+  <div style="position: absolute; inset: 0; background: radial-gradient(ellipse 60% 55% at 50% 38%, rgba(255,226,170,0.16), transparent 70%), radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.55) 100%)"></div>
+
+  <!-- poster area, left -->
+  <div style="position: absolute; left: 58px; top: 54px; width: 270px; height: 405px; transform: rotate(-1.2deg); background: #d9d4c7; box-shadow: 0 2px 2px rgba(0,0,0,0.3), 0 18px 30px rgba(0,0,0,0.45); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; border: 2px dashed #8d877a; box-sizing: border-box">
+    <span style="font-family: 'Roboto Mono', monospace; font-size: 13px; letter-spacing: 2px; color: #4f4a40">POSTER AREA</span>
+    <span style="font-size: 12px; color: #5e584d">Drop artwork here · 2:3</span>
+    <span style="position: absolute; left: 10px; top: 8px; width: 22px; height: 14px; border-radius: 6px; background: #8fb7c9; opacity: 0.85"></span>
+    <span style="position: absolute; right: 10px; top: 8px; width: 22px; height: 14px; border-radius: 6px; background: #8fb7c9; opacity: 0.85"></span>
+  </div>
+
+  <!-- poster area, right -->
+  <div style="position: absolute; left: 1112px; top: 54px; width: 270px; height: 405px; transform: rotate(1.4deg); background: #d9d4c7; box-shadow: 0 2px 2px rgba(0,0,0,0.3), 0 18px 30px rgba(0,0,0,0.45); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; border: 2px dashed #8d877a; box-sizing: border-box">
+    <span style="font-family: 'Roboto Mono', monospace; font-size: 13px; letter-spacing: 2px; color: #4f4a40">POSTER AREA</span>
+    <span style="font-size: 12px; color: #5e584d">Drop artwork here · 2:3</span>
+    <span style="position: absolute; left: 10px; top: 8px; width: 22px; height: 14px; border-radius: 6px; background: #8fb7c9; opacity: 0.85"></span>
+    <span style="position: absolute; right: 10px; top: 8px; width: 22px; height: 14px; border-radius: 6px; background: #8fb7c9; opacity: 0.85"></span>
+  </div>
+
+  <!-- ===================== FONY TV ===================== -->
+  <div style="position: absolute; left: 380px; top: 36px; width: 680px; height: 512px; filter: drop-shadow(0 26px 30px rgba(0,0,0,0.55))">
+    <!-- cabinet with chamfered lower corners -->
+    <div style="position: absolute; inset: 0; clip-path: polygon(0 2%, 1.5% 0, 98.5% 0, 100% 2%, 100% 80%, 92% 93%, 8% 93%, 0 80%); background: linear-gradient(180deg, #2b2b2d 0%, #222224 45%, #1b1b1d 100%)"></div>
+    <!-- side speaker grilles -->
+    <div style="position: absolute; left: 10px; top: 22px; width: 62px; height: 372px; border-radius: 4px; background-color: #1f1f21; background-image: radial-gradient(circle, #0b0b0c 0.9px, transparent 1.3px); background-size: 4px 4px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04)"></div>
+    <div style="position: absolute; right: 10px; top: 22px; width: 62px; height: 372px; border-radius: 4px; background-color: #1f1f21; background-image: radial-gradient(circle, #0b0b0c 0.9px, transparent 1.3px); background-size: 4px 4px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04)"></div>
+    <!-- front panel -->
+    <div style="position: absolute; left: 82px; top: 8px; width: 516px; height: 446px; border-radius: 6px; background: linear-gradient(180deg, #262628 0%, #1e1e20 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), inset 0 -1px 0 rgba(0,0,0,0.6), 0 0 0 1px #141415">
+      <span style="position: absolute; left: 30px; top: 14px; font-family: Inter, sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.2px; color: #b9b9be">Trinitone</span>
+      <!-- screen surround -->
+      <div style="position: absolute; left: 26px; top: 36px; width: 464px; height: 340px; border-radius: 6px; background: #121213; box-shadow: inset 0 2px 6px rgba(0,0,0,0.9), 0 1px 0 rgba(255,255,255,0.05); padding: 10px; box-sizing: border-box">
+        <!-- the glass -->
+        <div style="position: relative; width: 444px; height: 320px; border-radius: 16px / 20px; overflow: hidden; background: #1d2421">
+          <sc-if value="{{ showIdle }}" hint-placeholder-val="{{ true }}">
+            <div style="position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 45%, #0f1a3a 0%, #070b19 75%); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px">
+              <div style="font-family: 'Alfa Slab One', serif; font-size: 52px; letter-spacing: 9px; transform: scaleX(1.18); color: #f2f2f2; text-shadow: 0 0 14px rgba(180,200,255,0.45)">FONY</div>
+              <div style="font-family: Inter, sans-serif; font-weight: 600; font-size: 15px; letter-spacing: 6px; color: #c9d2ee">MEDIA CENTRE</div>
+              <div class="blink" style="margin-top: 26px; font-family: VT323, monospace; font-size: 26px; color: #f2f2f2; text-shadow: 2px 2px 0 #000">INSERT TAPE</div>
+              <div style="position: absolute; left: 26px; top: 18px; font-family: VT323, monospace; font-size: 30px; color: #5dff6a; text-shadow: 2px 2px 0 #000">AV1</div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ showTape }}" hint-placeholder-val="{{ false }}">
+            <div style="position: absolute; inset: 0; background: #1630c4; font-family: VT323, monospace; color: #f2f2f2">
+              <div style="position: absolute; left: 26px; top: 18px; font-size: 30px; color: #5dff6a; text-shadow: 2px 2px 0 #000">AV1</div>
+              <div style="position: absolute; right: 26px; top: 18px; font-size: 30px; text-shadow: 2px 2px 0 #000">SP</div>
+              <div style="position: absolute; left: 24px; right: 24px; top: 104px; text-align: center; font-size: 46px; line-height: 1; text-shadow: 3px 3px 0 #000">{{ sel.screen }}</div>
+              <div style="position: absolute; left: 24px; right: 24px; top: 160px; text-align: center; font-size: 26px; color: #ffe27a; text-shadow: 2px 2px 0 #000">{{ sel.sub }}</div>
+              <div style="position: absolute; left: 26px; bottom: 18px; font-size: 30px; text-shadow: 2px 2px 0 #000">▶ PLAY</div>
+              <div style="position: absolute; right: 26px; bottom: 18px; font-size: 30px; text-shadow: 2px 2px 0 #000">0:00:00</div>
+            </div>
+          </sc-if>
+          <!-- CRT layers: aperture grille, scanlines, two damper wires, curvature shading, glass reflection -->
+          <div style="position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(90deg, rgba(255,0,0,0.05) 0 1px, rgba(0,255,0,0.05) 1px 2px, rgba(0,80,255,0.05) 2px 3px); opacity: {{ grille }}"></div>
+          <div style="position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(180deg, rgba(0,0,0,0.3) 0 1px, transparent 1px 3px); opacity: {{ scan }}"></div>
+          <div style="position: absolute; left: 0; right: 0; top: 33%; height: 1px; background: rgba(0,0,0,0.3); pointer-events: none; opacity: {{ grille }}"></div>
+          <div style="position: absolute; left: 0; right: 0; top: 67%; height: 1px; background: rgba(0,0,0,0.3); pointer-events: none; opacity: {{ grille }}"></div>
+          <div style="position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.55) 100%)"></div>
+          <div style="position: absolute; inset: 0; pointer-events: none; background: linear-gradient(118deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.03) 28%, transparent 29%, transparent 100%)"></div>
+        </div>
+      </div>
+      <!-- chrome wordmark -->
+      <div style="position: absolute; left: 0; right: 0; top: 388px; display: flex; justify-content: center">
+        <span style="font-family: 'Alfa Slab One', serif; font-size: 24px; letter-spacing: 6px; transform: scaleX(1.18); background: linear-gradient(180deg, #f4f4f6 0%, #a9a9b0 48%, #e3e3e8 52%, #8e8e96 100%); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 1px 0 #000)">FONY</span>
+      </div>
+    </div>
+    <!-- control strip -->
+    <div style="position: absolute; left: 150px; top: 450px; width: 380px; height: 30px; border-radius: 4px 4px 2px 2px; background: linear-gradient(180deg, #1b1b1d, #161618); box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 0 0 1px #111; display: flex; align-items: center; gap: 10px; padding: 0 12px; box-sizing: border-box">
+      <span style="font-size: 10px; color: #b9b9be; margin-right: 6px">Stereo</span>
+      <span style="display: flex; flex-direction: column; align-items: center; gap: 2px"><span style="font-size: 6px; letter-spacing: 0.3px; color: #9d9da3">SET UP</span><span style="width: 18px; height: 6px; border-radius: 1px; background: #2c2c2f; box-shadow: inset 0 -1px 0 #000"></span></span>
+      <span style="display: flex; flex-direction: column; align-items: center; gap: 2px"><span style="font-size: 6px; letter-spacing: 0.3px; color: #9d9da3">TV/VIDEO</span><span style="width: 18px; height: 6px; border-radius: 1px; background: #2c2c2f; box-shadow: inset 0 -1px 0 #000"></span></span>
+      <span style="display: flex; flex-direction: column; align-items: center; gap: 2px"><span style="font-size: 6px; letter-spacing: 0.3px; color: #9d9da3">– VOLUME +</span><span style="display: flex; gap: 2px"><span style="width: 18px; height: 6px; border-radius: 1px; background: #2c2c2f; box-shadow: inset 0 -1px 0 #000"></span><span style="width: 18px; height: 6px; border-radius: 1px; background: #2c2c2f; box-shadow: inset 0 -1px 0 #000"></span></span></span>
+      <span style="display: flex; flex-direction: column; align-items: center; gap: 2px"><span style="font-size: 6px; letter-spacing: 0.3px; color: #9d9da3">– CHANNEL +</span><span style="display: flex; gap: 2px"><span style="width: 18px; height: 6px; border-radius: 1px; background: #2c2c2f; box-shadow: inset 0 -1px 0 #000"></span><span style="width: 18px; height: 6px; border-radius: 1px; background: #2c2c2f; box-shadow: inset 0 -1px 0 #000"></span></span></span>
+      <span style="display: flex; flex-direction: column; align-items: center; gap: 2px"><span style="font-size: 6px; letter-spacing: 0.3px; color: #3fd28a">POWER</span><span style="width: 18px; height: 6px; border-radius: 1px; background: #2c2c2f; box-shadow: inset 0 -1px 0 #000"></span></span>
+      <span style="width: 5px; height: 5px; border-radius: 1px; background: #ff3b2f; box-shadow: 0 0 5px #ff3b2f"></span>
+      <span style="flex: 1"></span>
+      <span style="width: 70px; height: 22px; border-radius: 2px; background: #1e1e20; box-shadow: inset 0 0 0 1px #0f0f10, inset 0 1px 0 rgba(255,255,255,0.04)"></span>
+    </div>
+    <!-- plinth -->
+    <div style="position: absolute; left: 70px; top: 478px; width: 540px; height: 22px; border-radius: 0 0 6px 6px; background: linear-gradient(180deg, #161618, #0e0e0f)"></div>
+  </div>
+
+  <!-- ===================== TV UNIT (black ash) ===================== -->
+  <div style="position: absolute; left: 230px; top: 532px; width: 980px; height: 368px; background: linear-gradient(180deg, #2a2724 0%, #1d1b19 100%); box-shadow: 0 -2px 0 #3e3a35, 0 20px 40px rgba(0,0,0,0.6)">
+    <svg style="position: absolute; inset: 0" width="980" height="368" aria-hidden="true">
+      <filter id="ash"><feTurbulence type="fractalNoise" baseFrequency="0.012 0.5" numOctaves="2" seed="9"/><feColorMatrix values="0 0 0 0 0.9  0 0 0 0 0.85  0 0 0 0 0.75  0 0 0 0.10 0"/></filter>
+      <rect width="980" height="368" filter="url(#ash)"/>
+    </svg>
+    <!-- top surface lip -->
+    <div style="position: absolute; left: 0; right: 0; top: 0; height: 14px; background: linear-gradient(180deg, #3b3732, #24211e)"></div>
+
+    <!-- VCR cubby -->
+    <div style="position: absolute; left: 180px; top: 30px; width: 620px; height: 128px; background: #0d0c0b; box-shadow: inset 0 10px 18px rgba(0,0,0,0.85), inset 0 0 0 2px #151311"></div>
+
+    <!-- ===================== FONY VCR ===================== -->
+    <div style="position: absolute; left: 196px; top: 46px; width: 588px; height: 104px; border-radius: 3px; background: linear-gradient(180deg, #2a2a2c 0%, #1f1f21 60%, #18181a 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 6px 10px rgba(0,0,0,0.6)">
+      <!-- left: badge, power, display, eject -->
+      <div style="position: absolute; left: 16px; top: 12px; width: 166px; height: 82px; display: flex; flex-direction: column; justify-content: space-between">
+        <div style="display: flex; align-items: center; justify-content: space-between">
+          <span style="font-family: 'Alfa Slab One', serif; font-size: 15px; letter-spacing: 3px; transform: scaleX(1.18); transform-origin: left; background: linear-gradient(180deg, #f4f4f6 0%, #a9a9b0 48%, #e3e3e8 52%, #8e8e96 100%); -webkit-background-clip: text; background-clip: text; color: transparent">FONY</span>
+          <button type="button" aria-label="Power" style="width: 34px; height: 14px; border: 0; border-radius: 2px; background: linear-gradient(180deg, #2f2f32, #1d1d1f); box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 0 1px #0d0d0e"></button>
+        </div>
+        <!-- display window (smoked glass, VFD digits) -->
+        <div style="height: 34px; border-radius: 2px; background: linear-gradient(180deg, #0a0c0c, #060707); box-shadow: inset 0 0 0 1px #000, inset 0 2px 6px rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: space-between; padding: 0 9px; font-family: VT323, monospace; color: #5cf2d6; text-shadow: 0 0 6px rgba(92,242,214,0.75)">
+          <span style="font-size: 13px; opacity: 0.85">{{ vfdMode }}</span>
+          <sc-if value="{{ showIdle }}" hint-placeholder-val="{{ true }}"><span class="blink" style="font-size: 26px">12:00</span></sc-if>
+          <sc-if value="{{ showTape }}" hint-placeholder-val="{{ false }}"><span style="font-size: 17px">{{ sel.vfd }}</span></sc-if>
+        </div>
+        <div style="display: flex; align-items: center; justify-content: space-between">
+          <button type="button" aria-label="Eject" onClick="{{ eject }}" style="width: 40px; height: 14px; border: 0; border-radius: 2px; background: linear-gradient(180deg, #2f2f32, #1d1d1f); box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 0 1px #0d0d0e; color: #c8c8cc; font-size: 9px; line-height: 14px; cursor: pointer">⏏</button>
+          <span style="font-size: 7px; letter-spacing: 0.6px; color: #8f8f96">ADAPTIVE PICTURE CONTROL</span>
+        </div>
+      </div>
+      <!-- right: the cassette slot flap (top) and smoked transport panel (bottom) -->
+      <div style="position: absolute; left: 198px; top: 10px; width: 374px; height: 46px; border-radius: 2px; background: linear-gradient(180deg, #232325, #1a1a1c); box-shadow: inset 0 0 0 1px #0f0f10, inset 0 1px 0 rgba(255,255,255,0.06), 0 1px 0 rgba(255,255,255,0.04); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px">
+        <span style="font-family: Inter, sans-serif; font-style: italic; font-weight: 600; font-size: 17px; color: #d8c48f">Hi-Fi Stereo</span>
+        <span style="font-family: Inter, sans-serif; font-style: italic; font-weight: 600; font-size: 7px; letter-spacing: 0.8px; color: #c7b47f">DIGITAL AUTO TRACKING / AUTO HEAD CLEANER</span>
+      </div>
+      <div style="position: absolute; left: 198px; top: 60px; width: 374px; height: 34px; border-radius: 2px; background: linear-gradient(180deg, #120d0d, #0b0808); box-shadow: inset 0 0 0 1px #000; display: flex; align-items: center; justify-content: flex-end; gap: 6px; padding: 0 10px; box-sizing: border-box">
+        <button type="button" aria-label="Rewind" style="width: 34px; height: 16px; border: 0; border-radius: 2px; background: linear-gradient(180deg, #2b2b2e, #1a1a1c); color: #bdbdc2; font-size: 8px">◀◀</button>
+        <button type="button" aria-label="Play" style="width: 44px; height: 16px; border: 0; border-radius: 2px; background: linear-gradient(180deg, #333336, #1f1f21); color: #e2e2e6; font-size: 9px">▶</button>
+        <button type="button" aria-label="Fast forward" style="width: 34px; height: 16px; border: 0; border-radius: 2px; background: linear-gradient(180deg, #2b2b2e, #1a1a1c); color: #bdbdc2; font-size: 8px">▶▶</button>
+        <button type="button" aria-label="Stop" style="width: 34px; height: 16px; border: 0; border-radius: 2px; background: linear-gradient(180deg, #2b2b2e, #1a1a1c); color: #bdbdc2; font-size: 8px">■</button>
+        <button type="button" aria-label="Pause" style="width: 34px; height: 16px; border: 0; border-radius: 2px; background: linear-gradient(180deg, #2b2b2e, #1a1a1c); color: #bdbdc2; font-size: 8px">❚❚</button>
+      </div>
+      <!-- feet -->
+      <span style="position: absolute; left: 30px; bottom: -6px; width: 40px; height: 6px; border-radius: 0 0 3px 3px; background: #0c0c0d"></span>
+      <span style="position: absolute; right: 30px; bottom: -6px; width: 40px; height: 6px; border-radius: 0 0 3px 3px; background: #0c0c0d"></span>
+    </div>
+
+    <!-- Dymo-label tabs on the shelf edge -->
+    <div style="position: absolute; left: 40px; top: 170px; right: 40px; display: flex; align-items: center; justify-content: space-between">
+      <div role="tablist" aria-label="Shelf" style="display: flex; gap: 10px">
+        <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+          <button type="button" role="tab" class="dymo" aria-selected="{{ t.on }}" onClick="{{ t.pick }}" style="{{ t.style }}">{{ t.label }}</button>
+        </sc-for>
+      </div>
+      <a href="Shelf.dc.html" class="dymo" style="font-family: 'Roboto Mono', monospace; font-weight: 700; font-size: 12px; letter-spacing: 2px; text-decoration: none; color: #f6f6f6; background: #1c3f8f; padding: 8px 12px; border-radius: 2px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), 0 2px 3px rgba(0,0,0,0.6); text-shadow: 0 -1px 0 rgba(0,0,0,0.6)">ALL TAPES ▸</a>
+    </div>
+
+    <!-- tape cubby -->
+    <div style="position: absolute; left: 40px; top: 210px; width: 900px; height: 150px; background: #0d0c0b; box-shadow: inset 0 12px 20px rgba(0,0,0,0.85), inset 0 0 0 2px #151311; display: flex; align-items: flex-end; gap: 4px; padding: 0 14px 0 14px; box-sizing: border-box; overflow: hidden">
+      <sc-for list="{{ tapes }}" as="tp" hint-placeholder-count="20">
+        <button type="button" class="tape" aria-label="{{ tp.aria }}" onClick="{{ tp.pick }}" style="{{ tp.style }}">
+          <span style="{{ tp.labelStyle }}">{{ tp.label }}</span>
+        </button>
+      </sc-for>
+    </div>
+  </div>
+
+  <!-- tapes lying on the unit top (your photos) -->
+  <img src="vhs-stack.png" alt="A stack of three VHS tapes" style="position: absolute; left: 236px; top: 446px; width: 150px; height: auto; filter: drop-shadow(0 8px 8px rgba(0,0,0,0.5))">
+  <img src="vhs-single.png" alt="A single VHS tape" style="position: absolute; left: 1064px; top: 468px; width: 140px; height: auto; transform: rotate(-4deg); filter: drop-shadow(0 8px 8px rgba(0,0,0,0.5))">
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"crt":{"editor":"enum","options":["Trinitron","Arcade","Clean"],"default":"Trinitron"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { picked: null, tab: 'sat' };
+  }
+  renderVals() {
+    const crt = this.props.crt ?? 'Trinitron';
+    const scan = crt === 'Clean' ? 0 : crt === 'Arcade' ? 1 : 0.7;
+    const grille = crt === 'Clean' ? 0 : crt === 'Arcade' ? 0.6 : 1;
+
+    const T = (id, label, screen, sub, vfd, ink, labelBg) => ({ id, label, screen, sub, vfd, ink: ink || '#1f2a6b', labelBg: labelBg || '#efe9d8' });
+    const sat = [
+      T('tf1', 'Transformers S1 — DO NOT TAPE OVER!!', 'TRANSFORMERS', 'SEASON 1', 'TRANSFRMRS 1', '#b0141a'),
+      T('tf2', 'Transformers S2', 'TRANSFORMERS', 'SEASON 2', 'TRANSFRMRS 2'),
+      T('tfm', 'Transformers the MOVIE', 'THE TRANSFORMERS', 'THE MOVIE · 1986', 'TF MOVIE', '#111111'),
+      T('tc1', 'Thundercats ser. 1', 'THUNDERCATS', 'SEASON 1 · 65 EPS', 'THUNDERCATS'),
+      T('mask', 'M.A.S.K. eps 1-75', 'M.A.S.K.', '75 EPISODES', 'M.A.S.K.', '#111111'),
+      T('hulk', "Hulk '82", 'THE INCREDIBLE HULK', '1982 · 13 EPS', 'HULK 82', '#b0141a'),
+      T('ig', 'Inspector Gadget', 'INSPECTOR GADGET', 'SEASONS 1-2', 'GADGET'),
+      T('u31', 'Ulysses 31', 'ULYSSES 31', '26 EPISODES', 'ULYSSES 31', '#111111'),
+      T('tmnt', 'TURTLES 1-3', 'TEENAGE MUTANT NINJA TURTLES', '1987 · 65 EPS', 'TURTLES', '#1d6b2a'),
+      T('cd', 'Count Duckula', 'COUNT DUCKULA', '65 EPISODES', 'DUCKULA'),
+      T('sm', 'Spidey + Amazing Friends', 'SPIDER-MAN AND HIS AMAZING FRIENDS', '24 EPISODES', 'SPIDEY', '#b0141a'),
+      T('dt', 'DuckTales', 'DUCKTALES', 'SEASON 1 · 65 EPS', 'DUCKTALES'),
+      T('cdr', "Chip 'n Dale", "CHIP 'N DALE RESCUE RANGERS", '14 EPISODES', 'RESCUE RNGR', '#111111'),
+      T('gb', 'GoBots', 'CHALLENGE OF THE GOBOTS', 'NEW ARRIVAL', 'GOBOTS', '#b0141a'),
+      T('rs', 'Ren & Stimpy', 'THE REN & STIMPY SHOW', '1991 · 95 STORIES', 'REN STIMPY'),
+      T('rk', "Rocko's Modern Life", "ROCKO'S MODERN LIFE", '1993 · 27 EPS', 'ROCKO', '#111111'),
+      T('dx', "Dexter's Lab", "DEXTER'S LABORATORY", 'CUSTOM TAPE · 78 EPS', 'DEXTER'),
+      T('pb', 'Pinky + the Brain', 'PINKY AND THE BRAIN', 'CUSTOM TAPE · 70 EPS', 'PINKY BRAIN', '#1d6b2a'),
+      T('rc', 'The Raccoons', 'THE RACCOONS', '21 EPISODES', 'RACCOONS'),
+      T('smf', 'Smurfs', 'THE SMURFS', '405 EPISODES', 'SMURFS', '#111111')
+    ];
+    const picked = this.state.picked;
+    const tapes = sat.map((t, i) => {
+      const on = picked === t.id;
+      const tilt = [0, -0.6, 0.4, 0, 0.8, -0.4, 0, 0.5][i % 8];
+      const style = 'position: relative; flex: 0 0 auto; width: 38px; height: 136px; padding: 0; border: 0; cursor: pointer; border-radius: 2px; display: flex; align-items: center; justify-content: center; box-sizing: border-box;'
+        + ' background: repeating-linear-gradient(180deg, rgba(255,255,255,0.025) 0 1px, transparent 1px 3px), linear-gradient(90deg, #0b0b0c 0 3px, #1b1b1d 3px 35px, #0b0b0c 35px);'
+        + (on ? ' transform: translateY(-14px); box-shadow: 0 0 0 2px #ffd27a, 0 10px 16px rgba(0,0,0,0.8);' : ' transform: rotate(' + tilt + 'deg); box-shadow: 1px 0 0 rgba(255,255,255,0.05), 0 4px 6px rgba(0,0,0,0.7);');
+      const labelStyle = 'writing-mode: vertical-rl; transform: rotate(180deg); width: 26px; height: 112px; box-sizing: border-box; padding: 5px 2px; border-radius: 1px;'
+        + ' background: linear-gradient(90deg, rgba(0,0,0,0.06), transparent 30%, transparent 70%, rgba(0,0,0,0.08)), ' + t.labelBg + ';'
+        + ' font-family: Kalam, cursive; font-weight: 700; font-size: 12px; line-height: 1; color: ' + t.ink + '; overflow: hidden; display: flex; align-items: center; text-align: center';
+      return { label: t.label, aria: 'Tape: ' + t.screen + (on ? ' (selected)' : ''), style, labelStyle, pick: () => this.setState({ picked: on ? null : t.id }) };
+    });
+
+    const sel = sat.find((t) => t.id === picked) || { screen: '', sub: '', vfd: '' };
+    const tabDefs = [['sat', 'SATURDAY MORNING'], ['cont', 'CONTINUE'], ['new', 'JUST ADDED'], ['fav', 'FAVOURITES']];
+    const tabs = tabDefs.map(([id, label]) => {
+      const on = this.state.tab === id;
+      return {
+        label, on: on ? 'true' : 'false',
+        pick: () => this.setState({ tab: id }),
+        style: 'font-family: \'Roboto Mono\', monospace; font-weight: 700; font-size: 12px; letter-spacing: 2px; cursor: pointer; border: 0; border-radius: 2px; padding: 8px 12px; color: #f6f6f6; text-shadow: 0 -1px 0 rgba(0,0,0,0.6); box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), 0 2px 3px rgba(0,0,0,0.6); background: ' + (on ? '#b3201f' : '#141414') + '; transform: rotate(' + (on ? '-1deg' : '0deg') + ')'
+      };
+    });
+
+    return {
+      scan, grille, tapes, tabs, sel,
+      showIdle: !picked, showTape: !!picked,
+      vfdMode: picked ? 'PLAY' : 'STOP',
+      eject: () => this.setState({ picked: null })
+    };
+  }
+}
+</script>
+</body>
+</html>

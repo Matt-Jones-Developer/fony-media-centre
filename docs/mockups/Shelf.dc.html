@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>The shelves</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=VT323&amp;family=Press+Start+2P&amp;family=Permanent+Marker&amp;family=Bungee&amp;family=Inter:wght@400;600;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0d0b14}
+a{color:#7df9ff}a:hover{color:#ffffff}
+.tape{transition:transform .18s ease}
+.tape:hover{transform:translateY(-8px)}
+.tape:focus-visible,.chip:focus-visible{outline:3px solid #7df9ff;outline-offset:3px}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1000px; position: relative; overflow: hidden; font-family: Inter, system-ui, sans-serif; color: #e9e6f2; background-color: #15121f; background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.025) 0 2px, transparent 2px 22px), repeating-linear-gradient(-45deg, rgba(255,255,255,0.02) 0 2px, transparent 2px 22px)">
+
+  <!-- top bar -->
+  <div style="height: 92px; display: flex; align-items: center; gap: 24px; padding: 0 48px; box-sizing: border-box; border-bottom: 2px solid #2e2b36">
+    <a href="Main.dc.html" style="font-family: 'Press Start 2P', monospace; font-size: 10px; text-decoration: none; padding: 12px 12px; border: 2px solid #4b4756; border-radius: 4px; color: #c9c4d8">◂ BACK TO THE TV</a>
+    <h1 style="margin: 0; font-family: Bungee, sans-serif; font-size: 34px; letter-spacing: 1px; color: #ffffff; text-shadow: 0 3px 0 #ff3f8e">THE SHELVES</h1>
+    <div style="display: flex; gap: 8px; flex: 1 1 auto">
+      <sc-for list="{{ chips }}" as="c" hint-placeholder-count="5">
+        <button type="button" class="chip" onClick="{{ c.pick }}" aria-pressed="{{ c.on }}" style="{{ c.style }}">{{ c.label }}</button>
+      </sc-for>
+    </div>
+    <label style="display: flex; align-items: center; gap: 8px; font-family: VT323, monospace; font-size: 22px; color: #3dffd1">
+      <span>FIND</span>
+      <input type="search" placeholder="Title…" style="width: 200px; height: 40px; box-sizing: border-box; padding: 0 12px; border: 2px solid #3dffd1; border-radius: 3px; background: #071512; color: #3dffd1; font-family: VT323, monospace; font-size: 22px">
+    </label>
+  </div>
+
+  <!-- shelves -->
+  <div style="position: absolute; left: 48px; top: 120px; width: 900px; display: flex; flex-direction: column; gap: 34px">
+    <sc-for list="{{ shelves }}" as="sh" hint-placeholder-count="3">
+      <div>
+        <div style="font-family: 'Press Start 2P', monospace; font-size: 10px; color: #ff8fc0; margin-bottom: 10px">{{ sh.name }}</div>
+        <div style="height: 196px; display: flex; align-items: flex-end; gap: 6px; padding: 0 14px; border-bottom: 16px solid #2e2b36; box-shadow: 0 18px 26px rgba(0,0,0,0.55)">
+          <sc-for list="{{ sh.tapes }}" as="tp" hint-placeholder-count="12">
+            <button type="button" class="tape" aria-label="{{ tp.aria }}" onClick="{{ tp.pick }}" style="{{ tp.style }}">
+              <sc-if value="{{ tp.isFace }}" hint-placeholder-val="{{ false }}">
+                <span style="display: flex; flex-direction: column; justify-content: space-between; width: 100%; height: 100%; box-sizing: border-box; padding: 10px 10px 8px">
+                  <span style="font-family: Bungee, sans-serif; font-size: 22px; line-height: 1; color: #ffffff; text-shadow: 0 2px 0 #000; text-align: left">{{ tp.label }}</span>
+                  <span style="flex: 1; margin: 8px 0; border: 2px dashed rgba(255,255,255,0.45); display: flex; align-items: center; justify-content: center; font-family: VT323, monospace; font-size: 16px; color: rgba(255,255,255,0.8)">TMDB POSTER</span>
+                  <span style="display: flex; justify-content: space-between; align-items: center"><span style="font-family: Inter, sans-serif; font-size: 10px; font-weight: 800; letter-spacing: 1px; color: #ffffff">2 NIGHT HIRE</span><span style="width: 22px; height: 22px; border-radius: 50%; background: #3bd16f; color: #0b2a14; font-family: Inter, sans-serif; font-weight: 800; font-size: 12px; display: flex; align-items: center; justify-content: center">U</span></span>
+                </span>
+              </sc-if>
+              <sc-if value="{{ tp.isSpine }}" hint-placeholder-val="{{ true }}">
+                <span style="{{ tp.labelStyle }}">{{ tp.label }}</span>
+              </sc-if>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+
+  <!-- pulled-out tape -->
+  <div style="position: absolute; left: 990px; top: 120px; width: 402px; height: 840px; box-sizing: border-box; padding: 26px; border-radius: 8px; background: #1c1926; border: 2px solid #2e2b36; box-shadow: 0 24px 48px rgba(0,0,0,0.6); display: flex; flex-direction: column; gap: 18px">
+    <!-- tape front, flipped to its label -->
+    <div style="height: 196px; border-radius: 6px; background: linear-gradient(180deg, #1c1c20, #111114); box-shadow: inset 0 0 0 2px #2a2a30; display: flex; align-items: center; justify-content: center; position: relative">
+      <div style="width: 300px; height: 92px; border-radius: 3px; background: {{ sel.labelBg }}; transform: rotate(-1.5deg); display: flex; align-items: center; justify-content: center; padding: 8px 14px; box-sizing: border-box; font-family: 'Permanent Marker', cursive; font-size: 24px; line-height: 1.1; color: #1a1a1a; text-align: center">{{ sel.label }}</div>
+      <div style="position: absolute; right: 12px; bottom: 10px; font-family: VT323, monospace; font-size: 16px; color: #8d8d96">E-180 · SP</div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h2 style="margin: 0; font-family: Bungee, sans-serif; font-size: 24px; line-height: 1.1; color: #ffffff">{{ sel.title }}</h2>
+      <div style="font-family: VT323, monospace; font-size: 22px; color: #3dffd1">{{ sel.meta }}</div>
+      <p style="margin: 6px 0 0; font-size: 14px; line-height: 1.5; color: #c9c4d8">[TMDB synopsis for this tape]</p>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 10px">
+      <button type="button" style="height: 52px; border: 0; border-radius: 4px; background: #ff3f8e; color: #ffffff; font-family: 'Press Start 2P', monospace; font-size: 13px; cursor: pointer; box-shadow: 0 4px 0 #a01f58">INSERT TAPE ▶</button>
+      <div style="display: flex; gap: 10px">
+        <button type="button" style="flex: 1; height: 44px; border: 2px solid #4b4756; border-radius: 4px; background: transparent; color: #e9e6f2; font-family: Inter, sans-serif; font-weight: 600; font-size: 13px; cursor: pointer">Edit tape</button>
+        <button type="button" style="flex: 1; height: 44px; border: 2px solid #4b4756; border-radius: 4px; background: transparent; color: #e9e6f2; font-family: Inter, sans-serif; font-weight: 600; font-size: 13px; cursor: pointer">Favourite ★</button>
+      </div>
+    </div>
+
+    <div style="flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 8px">
+      <div style="font-family: 'Press Start 2P', monospace; font-size: 10px; color: #ff8fc0">ON THIS TAPE</div>
+      <ol style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; overflow: hidden">
+        <sc-for list="{{ sel.eps }}" as="ep" hint-placeholder-count="6">
+          <li style="display: flex; gap: 12px; align-items: baseline; padding: 6px 8px; border-radius: 3px; background: rgba(255,255,255,0.03); font-size: 14px">
+            <span style="font-family: VT323, monospace; font-size: 20px; color: #3dffd1; flex: 0 0 64px">{{ ep.code }}</span>
+            <span style="color: #e9e6f2">{{ ep.name }}</span>
+          </li>
+        </sc-for>
+      </ol>
+      <sc-if value="{{ sel.hasNote }}" hint-placeholder-val="{{ true }}">
+        <div style="margin-top: 4px; padding: 10px 12px; border: 2px dashed #ffe95c; border-radius: 4px; font-size: 13px; line-height: 1.45; color: #ffe95c">{{ sel.note }}</div>
+      </sc-if>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { picked: 'tf1', filter: 'all' };
+  }
+  renderVals() {
+    const H = (id, label, title, meta, labelBg) => ({ id, kind: 'home', label, title, meta, labelBg: labelBg || '#f4efe4' });
+    const R = (id, label, title, meta, band) => ({ id, kind: 'rental', label, title, meta, band });
+    const F = (id, label, title, meta, sleeve) => ({ id, kind: 'face', label, title, meta, sleeve });
+    const O = (id, label, title, meta) => ({ id, kind: 'offline', label, title, meta });
+
+    const shelfDefs = [
+      { name: 'SATURDAY MORNING', tapes: [
+        H('tf1', 'TRANSFORMERS S1  DO NOT TAPE OVER!!', 'The Transformers', '1984 · SEASON 1 · CARTOONS'),
+        H('tf2', 'TRANSFORMERS S2', 'The Transformers', '1984 · SEASON 2 · CARTOONS'),
+        H('tf3', 'TRANSFORMERS S3', 'The Transformers', '1984 · SEASON 3 · CARTOONS'),
+        H('tf4', 'TRANSFORMERS S4', 'The Transformers', '1984 · SEASON 4 · CARTOONS'),
+        R('tfm', 'THE TRANSFORMERS: THE MOVIE', 'The Transformers: The Movie', '1986 · MOVIE · STACKED WITH THE SERIES', '#e0245e'),
+        H('tc1', 'THUNDERCATS! S1', 'ThunderCats', '1985 · SEASON 1 · 65 EPISODES', '#ffe95c'),
+        H('hulk', "HULK '82", 'The Incredible Hulk', '1982 · 13 EPISODES', '#c9f7c0'),
+        H('ig', 'INSPECTOR GADGET', 'Inspector Gadget', '1983 · SEASONS 1–2'),
+        H('u31', 'ULYSSES 31', 'Ulysses 31', '1981 · 26 EPISODES', '#bfe6ff'),
+        H('tmnt', 'TURTLES!! S1–3', 'Teenage Mutant Ninja Turtles', '1987 · 65 EPISODES'),
+        H('cd', 'COUNT DUCKULA', 'Count Duckula', '1988 · 65 EPISODES')
+      ]},
+      { name: 'STAFF PICKS', tapes: [
+        F('mask', 'M.A.S.K.', 'M.A.S.K.', '1985 · 75 EPISODES + THE MOVIE', '#2e5bd6'),
+        H('sm', 'SPIDEY + AMAZING FRIENDS', 'Spider-Man and His Amazing Friends', '1981 · 24 EPISODES'),
+        H('sm94', 'SPIDER-MAN 94', 'Spider-Man', '1994 · 53 EPISODES TIDIED', '#ffd0e0'),
+        H('dt', 'DUCKTALES', 'DuckTales', '1987 · 65 EPISODES', '#ffe95c'),
+        H('cdr', "CHIP 'N DALE", "Chip 'n' Dale Rescue Rangers", '1989 · 14 EPISODES'),
+        R('ham', 'HEY ARNOLD! THE MOVIE', 'Hey Arnold! The Movie', '2002 · MOVIE', '#ff8c1a'),
+        H('gb', 'GOBOTS', 'Challenge of the GoBots', 'NEW ARRIVAL · NOT TIDIED YET', '#ffd0e0')
+      ]},
+      { name: 'BEDROOM FLOOR', tapes: [
+        H('rs', 'REN & STIMPY (NICK)', 'The Ren & Stimpy Show', '1991 · 95 STORIES'),
+        H('rk', "ROCKO'S MODERN LIFE", "Rocko's Modern Life", '1993 · 27 EPISODES'),
+        H('dx', "DEXTER'S LAB", "Dexter's Laboratory", '1996 · CUSTOM TAPE · 78 EPISODES', '#c9f7c0'),
+        H('pb', 'PINKY & THE BRAIN', 'Pinky and the Brain', '1995 · CUSTOM TAPE · 70 EPISODES'),
+        H('pp', 'PINK PANTHER (BEST OF)', 'The Pink Panther', '1964 · CURATED · 28 CARTOONS', '#ffd0e0'),
+        H('rc', 'THE RACCOONS', 'The Raccoons', '1985 · 21 EPISODES'),
+        H('smf', 'THE SMURFS', 'The Smurfs', '1981 · 405 EPISODES', '#bfe6ff'),
+        O('off', 'MOVIES SSD', 'A tape from your Movies SSD', 'TAPE NOT IN SHELF · PLUG IN THE DRIVE')
+      ]}
+    ];
+
+    const all = shelfDefs.flatMap((s) => s.tapes);
+    const picked = this.state.picked;
+    const mk = (t) => {
+      const on = picked === t.id;
+      const base = 'position: relative; flex: 0 0 auto; padding: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; box-sizing: border-box; border: 0;';
+      const lift = on ? ' transform: translateY(-18px); box-shadow: 0 0 0 3px #7df9ff, 0 12px 20px rgba(0,0,0,0.7);' : ' box-shadow: 0 6px 10px rgba(0,0,0,0.6);';
+      let style, labelStyle = '';
+      if (t.kind === 'face') {
+        style = base + ' width: 128px; height: 186px; border-radius: 4px; background: linear-gradient(160deg, ' + t.sleeve + ' 0%, #0d0b14 140%); border-top: 12px solid #e0245e;' + lift;
+      } else if (t.kind === 'rental') {
+        style = base + ' width: 58px; height: 178px; border-radius: 3px; background: linear-gradient(90deg, #f7f7f2 0 10px, #e6e6df 10px 48px, #f7f7f2 48px); border-top: 14px solid ' + t.band + ';' + lift;
+        labelStyle = 'writing-mode: vertical-rl; transform: rotate(180deg); font-family: Bungee, sans-serif; font-size: 11px; line-height: 1.1; color: #1a1a1a; max-height: 150px; overflow: hidden; text-align: center';
+      } else if (t.kind === 'offline') {
+        style = base + ' width: 44px; height: 170px; border-radius: 2px; background: repeating-linear-gradient(135deg, #24222b 0 6px, #1a1820 6px 12px); opacity: 0.55; outline: 2px dashed #6b6778; outline-offset: -2px;' + lift;
+        labelStyle = 'writing-mode: vertical-rl; transform: rotate(180deg); font-family: VT323, monospace; font-size: 15px; color: #c9c4d8';
+      } else {
+        style = base + ' width: 44px; height: 170px; border-radius: 2px; background: linear-gradient(90deg, #121214 0 4px, #1c1c20 4px 40px, #121214 40px);' + lift;
+        labelStyle = 'writing-mode: vertical-rl; transform: rotate(180deg); width: 28px; height: 148px; box-sizing: border-box; padding: 6px 0; background: ' + t.labelBg + '; border-radius: 2px; font-family: \'Permanent Marker\', cursive; font-size: 12px; line-height: 1.05; color: #1a1a1a; overflow: hidden; display: flex; align-items: center; text-align: center';
+      }
+      return {
+        label: t.label, style, labelStyle,
+        isFace: t.kind === 'face', isSpine: t.kind !== 'face',
+        aria: 'Tape: ' + t.title + (on ? ' (pulled out)' : ''),
+        pick: () => this.setState({ picked: t.id })
+      };
+    };
+    const shelves = shelfDefs.map((s) => ({ name: s.name, tapes: s.tapes.map(mk) }));
+
+    const t = all.find((x) => x.id === picked) || all[0];
+    const tf1Eps = [
+      { code: 'S01E01', name: 'Transport to Oblivion' },
+      { code: 'S01E02', name: 'Roll for It' },
+      { code: 'S01E03', name: 'Divide and Conquer' },
+      { code: 'S01E04', name: '…' }
+    ];
+    const sel = {
+      title: t.title,
+      meta: t.meta,
+      label: t.label,
+      labelBg: t.labelBg || '#f4efe4',
+      eps: t.id === 'tf1' ? tf1Eps : [{ code: 'S01E01', name: '[episode titles from your library]' }, { code: 'S01E02', name: '…' }],
+      hasNote: t.id === 'tf1' || t.id === 'gb' || t.id === 'off',
+      note: t.id === 'tf1'
+        ? 'Left as-is by the renamer: More Than Meets the Eye pts 1–3 and The Ultimate Doom pts 1–3. Fix them in Edit tape.'
+        : t.id === 'gb'
+          ? 'New folder on the drive. Run tapehead to tidy it, or open Edit tape.'
+          : 'This tape lives on a drive that isn’t plugged in.'
+    };
+
+    const chipDefs = [['all', 'ALL'], ['cart', 'CARTOONS'], ['mov', 'MOVIES'], ['80s', '80s'], ['90s', '90s'], ['az', 'A–Z']];
+    const chips = chipDefs.map(([id, label]) => {
+      const on = this.state.filter === id;
+      return {
+        label, on: on ? 'true' : 'false',
+        pick: () => this.setState({ filter: id }),
+        style: 'font-family: \'Press Start 2P\', monospace; font-size: 10px; padding: 12px 12px; border-radius: 4px; cursor: pointer; border: 2px solid ' + (on ? '#ff3f8e' : '#4b4756') + '; background: ' + (on ? '#ff3f8e' : 'transparent') + '; color: ' + (on ? '#ffffff' : '#c9c4d8')
+      };
+    });
+
+    return { shelves, sel, chips };
+  }
+}
+</script>
+</body>
+</html>
